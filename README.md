@@ -22,7 +22,7 @@ fala com eles pelo protocolo companion oficial.
 
 ```
 ┌──────────── celular Android ─────────────┐
-│  UI (Compose): conversas, contatos, canais, config
+│  UI (Compose): conversas, contatos, mapa, rede, config
 │        │ frames do protocolo companion
 │  libmeshcore.so (NDK)                    │
 │    MyMesh (firmware companion MeshCore)  │
@@ -36,24 +36,79 @@ fala com eles pelo protocolo companion oficial.
 - A identidade, os contatos e os canais ficam salvos no app. O histórico de mensagens fica em SQLite no celular.
 - Um serviço em primeiro plano mantém o rádio ativo com a tela apagada.
 
+## Telas
+
+<p align="center">
+  <img src="docs/screens/1-conversas.jpg" width="200" alt="Conversas: canais e mensagens diretas">
+  <img src="docs/screens/7-chat-direto.jpg" width="200" alt="Mensagem direta com confirmação de entrega">
+  <img src="docs/screens/2-contatos.jpg" width="200" alt="Contatos com filtro por tipo">
+</p>
+<p align="center">
+  <img src="docs/screens/9-admin-repetidor.jpg" width="200" alt="Administração remota de repetidor">
+  <img src="docs/screens/4-rede.jpg" width="200" alt="Rede: estatísticas e gráficos">
+  <img src="docs/screens/5-config.jpg" width="200" alt="Configuração por região">
+</p>
+
+Mesmo visual do [MeshSDR-Android](https://github.com/engperini/MeshSDR-Android): tema escuro "céu noturno", cards
+translúcidos e destaques em ciano. As telas acima são renderizadas pelos testes (`ScreenshotTest`) com dados de exemplo.
+
 ## Funcionalidades
 
-- 💬 **Canais em grupo**: o *Public* já vem configurado. Você pode criar **#hashtag** (todos que usam o mesmo
-  `#nome` entram na mesma conversa), canal **privado novo** (chave aleatória) ou entrar num canal **com chave**
-  (hex ou base64). Também dá para ver e copiar a chave para compartilhar.
-- ✉️ **Mensagens diretas**, com status *enviando → enviado → entregue (✓✓)* pela confirmação (ACK) do
-  destinatário, mais o tempo de ida e volta. Toque numa mensagem sem confirmação para reenviar.
-- 👥 **Contatos** descobertos por advert, com busca, filtro (chat/repetidor/sala), saltos e "visto há". Toque e
-  segure um contato para **redefinir rota**, **compartilhar** (zero-hop) ou **remover**. Também tem o modo
-  "adicionar só manualmente", com a lista de nós descobertos e o botão **Adicionar**.
-- 📡 **Rádio**: presets (Brasil 923.125/62.5/SF8/CR8, EU/UK, EUA) ou ajuste manual de frequência, BW, SF, CR e
-  potência TX; **repetir pacotes** (o companion também funciona como repetidor); tamanho do hash de caminho
-  (1/2/3 bytes; a MeshCore Brasil usa 2).
-- 📢 **Advert** manual (flood ou zero-hop) e **advert automático** (30 min a 12 h).
-- 📍 **Localização** no advert, digitada ou pelo GPS do celular.
-- 🩺 **Diagnóstico do rádio**, o mesmo `radio-diag` do MeshCoreRPI: status do SX1262, RSSI/SNR, piso de ruído e
-  contadores. Mais um **log de pacotes recebidos** (tipo, rota, SNR, RSSI).
-- 🔔 Notificações de mensagens novas. O app abre sozinho quando você pluga o MeshStick.
+- 💬 **Conversas**: canais em grupo e mensagens diretas numa lista só, com não lidas e a última mensagem.
+  - **Canais**: o *Public* já vem configurado. Você pode criar **#hashtag** (todos que usam o mesmo `#nome` entram
+    na mesma conversa), canal **privado novo** (chave aleatória) ou entrar num canal **com chave**. Para compartilhar,
+    toque e segure o canal → **QR code**.
+  - **Mensagens diretas**: status *enviando → enviado → entregue ✓✓* pela confirmação (ACK) do destinatário, com o
+    tempo de ida e volta. Toque numa mensagem sem confirmação para reenviar.
+  - **Salas (room servers)**: login pelo próprio chat. As mensagens aparecem com o nome do autor.
+- 👥 **Contatos**: busca, filtro (chat, repetidor, sala, sensor), ordenação (recentes, nome, saltos) e "visto há".
+  O detalhe do contato mostra a rota (repetidores do caminho) e tem os botões **Descobrir rota** (ida e volta),
+  **Usar esta rota**, **Redefinir**, **QR code**, compartilhar zero-hop e remover. No modo "adicionar manualmente",
+  os nós ouvidos ficam em **Descobertos** com o botão Adicionar.
+- 🛠️ **Administração remota** de repetidores, salas e sensores:
+  - **login** de admin ou convidado (dá para lembrar a senha);
+  - **status**: bateria, uptime, fila, pacotes, flood/direto, tempo no ar, RSSI/SNR e ruído;
+  - **terminal CLI** criptografado, com atalhos (`ver`, `clock`, `neighbors`, `get radio`…).
+- 🔳 **QR codes `meshcore://`**, compatíveis com o app oficial: mostre o seu, o de um contato ou o de um canal.
+  Escaneie com a câmera, ou abra um link `meshcore://` vindo de outro app.
+- 🗺️ **Mapa** dos contatos com GPS, em OpenStreetMap sem chave de API (como o mapa web do MeshCoreRPI), em modo
+  noturno.
+- 📊 **Rede**, como o painel web do Pi:
+  - estatísticas do nó: recebidos/enviados, flood/direto, SNR, RSSI, ruído, uptime, tempo no ar, erros;
+  - gráfico de SNR/RSSI e contagem por tipo de pacote;
+  - **diagnóstico do rádio** (`radio-diag`) e log de pacotes recebidos.
+- ⚙️ **Configurações**:
+  - **Rádio em 3 passos**: escolha a **região** (Brasil, EUA/Canadá, EU/UK, Austrália, Nova Zelândia), depois os
+    **bytes do caminho** (1/2/3; a MeshCore Brasil usa 2) e a **potência**. Frequência, BW, SF, CR e o modo
+    repetidor ficam em *Avançado*.
+  - **Advert** manual (flood ou zero-hop) e automático (1 h, 3 h, 12 h).
+  - **Contatos**: adicionar automaticamente ou manualmente, por tipo, e substituir o mais antigo quando a lista
+    encher.
+  - **Telemetria**: com quem compartilhar a bateria (ninguém, favoritos, todos).
+  - **Localização** no advert (digitada ou pelo GPS).
+  - **Backup da identidade**: exportar e restaurar a chave privada.
+- 🔔 Notificações de mensagens novas, rádio ativo com a tela apagada, e o app abre sozinho quando você pluga o
+  MeshStick.
+
+## Comparação com o app oficial do MeshCore e com o MeshCoreRPI
+
+| Funcionalidade | App oficial MeshCore | MeshCoreRPI (Pi) | MeshCore USB (este app) |
+|---|---|---|---|
+| Como conecta ao rádio | BLE/USB com um nó que roda firmware | SPI/USB no Pi; clientes por TCP | **USB OTG direto no MeshStick, nó roda no celular** |
+| Canais Public, #hashtag e privados | ✅ | via cliente | ✅ |
+| Mensagens diretas com ACK e reenvio | ✅ | via cliente | ✅ |
+| Salas (room servers) | ✅ | via cliente | ✅ login + autores |
+| Admin de repetidor (login, status, CLI) | ✅ | ✅ (web/CLI local) | ✅ |
+| Descobrir/definir rota | ✅ | — | ✅ |
+| QR codes `meshcore://` | ✅ | — | ✅ mostrar, escanear, abrir links |
+| Mapa de contatos | ✅ | ✅ (mapa web) | ✅ OpenStreetMap |
+| Presets de rádio por região | ✅ | README | ✅ região → bytes → potência |
+| Tamanho do hash de caminho | ✅ | ✅ | ✅ |
+| Advert automático | horário | ✅ (minutos) | ✅ |
+| Estatísticas, gráficos, log de pacotes | parcial | ✅ (painel web) | ✅ aba Rede |
+| Diagnóstico do rádio (`radio-diag`) | — | ✅ | ✅ |
+| Backup da identidade (chave privada) | ✅ | — | ✅ |
+| Telemetria de sensores, trace path | ✅ | — | ainda não |
 
 ## Hardware
 
@@ -76,9 +131,13 @@ Você precisa de:
 2. Instale o APK. O Android vai pedir para permitir instalação de fontes desconhecidas.
 3. Coloque a antena, conecte o MeshStick ao celular pelo OTG e aceite **abrir o MeshCore USB** e
    **permitir o acesso ao dispositivo USB**. Marque "usar sempre" para não perguntar de novo.
-4. Na aba **Config**, confira os parâmetros de rádio da sua região (por padrão: Brasil 923.125 MHz, 62.5 kHz,
-   SF8, CR8) e dê um nome ao seu nó.
+4. Na aba **Config** → **Rádio LoRa**, escolha a **região** (padrão: Brasil 923.125 MHz, 62.5 kHz, SF8, CR8), os
+   **bytes do caminho** (Brasil: 2) e toque em **Aplicar**. Em **Identidade**, dê um nome ao seu nó.
 5. Menu ⋮ → **Enviar advert (flood)** para ser descoberto. Depois é só abrir o canal *Public* e dar um oi 👋
+
+Para atualizar, instale o APK novo por cima: a identidade, os contatos e as mensagens são mantidos, desde que os
+dois APKs tenham a mesma assinatura. Antes de trocar de celular ou reinstalar, faça **Config → Backup da
+identidade → Exportar**.
 
 > [!TIP]
 > Alguns celulares desligam o OTG depois de um tempo sem uso, ou economizam bateria de forma agressiva. Se o
@@ -90,8 +149,12 @@ Requisitos: JDK 17, Android SDK (platform 35), NDK `27.2.12479018` e CMake `3.22
 
 ```bash
 ./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
-./gradlew assembleRelease      # APK com R8, assinado com a chave de debug
+./gradlew assembleRelease      # APK com R8
 ```
+
+Assinatura: se existir `app/meshcore-debug.jks` (ou as variáveis `MESHCORE_KEYSTORE_FILE`,
+`MESHCORE_KEYSTORE_PASSWORD`, `MESHCORE_KEY_ALIAS` e `MESHCORE_KEY_PASSWORD`), os APKs saem sempre com a mesma
+assinatura. Sem ela, a chave de debug da máquina é usada. A chave fica fora do git.
 
 ### Testes (firmware real, dois nós)
 
@@ -103,7 +166,10 @@ protocolo do app (`Protocol.kt`) para exercitar:
 - DM com ACK;
 - canal Public e canal #hashtag;
 - parâmetros de rádio, localização, remoção de contato;
-- adição manual de contato descoberto.
+- adição manual de contato descoberto;
+- links `meshcore://`, rota salva, estatísticas, regras de auto-adicionar, backup da chave e descoberta de rota.
+
+`ScreenshotTest` (Robolectric) renderiza as telas principais em `app/build/screenshots/`.
 
 ```bash
 tools/hosttest/build.sh
