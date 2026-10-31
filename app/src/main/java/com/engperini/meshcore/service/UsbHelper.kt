@@ -1,5 +1,6 @@
 package com.engperini.meshcore.service
 
+import com.engperini.meshcore.core.tr
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -25,7 +26,7 @@ object UsbHelper {
         val usb = context.getSystemService(Context.USB_SERVICE) as UsbManager
         val device = findMeshStick(usb)
         if (device == null) {
-            MeshController.setNoDevice("MeshStick não encontrado — conecte-o via cabo OTG")
+            MeshController.setNoDevice(tr("MeshStick not found — plug it in with an OTG cable", "MeshStick não encontrado — conecte-o via cabo OTG"))
             return
         }
         if (usb.hasPermission(device)) {
@@ -39,7 +40,7 @@ object UsbHelper {
                 if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
                     MeshService.start(app, device)
                 } else {
-                    MeshController.setNoDevice("Permissão USB negada")
+                    MeshController.setNoDevice(tr("USB permission denied", "Permissão USB negada"))
                 }
             }
         }

@@ -1,13 +1,224 @@
 # MeshCore USB (AndroidMeshcore)
 
-Rode um nó **[MeshCore](https://github.com/meshcore-dev/MeshCore) completo dentro do celular Android**.
-Você pluga um **USB MeshStick** (CH341 + SX1262) no celular com um cabo **OTG** e já sai usando:
-canais em grupo, mensagens diretas, contatos e configurações de rádio, tudo no mesmo app.
-Não precisa gravar firmware, nem de Bluetooth, nem de um segundo app.
+**English** · [Português](#português)
+
+Run a **full [MeshCore](https://github.com/meshcore-dev/MeshCore) node inside your Android phone**. Plug a
+**USB MeshStick** (CH341 + SX1262) into the phone with an **OTG** cable and start using it: group channels, direct
+messages, contacts, rooms, repeater admin, map and radio settings, all in one app. No firmware flashing, no
+Bluetooth, no second app.
 
 <p align="center">
-  <img src="docs/hardware.jpg" alt="Celular Android com o USB MeshStick conectado por cabo OTG, app MeshCore USB mostrando o diagnóstico do rádio" width="360"><br>
-  <sub>Funcionando de verdade: celular Android + USB MeshStick (CH341 + SX1262) num adaptador OTG, recebendo a malha MeshCore Brasil.</sub>
+  <img src="docs/hardware.jpg" alt="Android phone with the USB MeshStick on an OTG cable, MeshCore USB showing the radio diagnostics" width="360"><br>
+  <sub>The real thing: an Android phone + a USB MeshStick (CH341 + SX1262) on an OTG adapter, receiving the MeshCore Brasil mesh.</sub>
+</p>
+
+> [!WARNING]
+> Use at your own risk. You are responsible for transmitting only on frequencies and power levels that are legal
+> where you are.
+
+This is the Android port of [MeshCoreRPI](https://github.com/engperini/MeshCoreRPI). It runs the same MeshCore
+companion firmware (`MyMesh`) and the same SX1262 + CH341 driver, built with the NDK. The app talks to them with
+the official companion protocol.
+
+## How it works
+
+```
+┌──────────── Android phone ───────────────┐
+│  UI (Compose): chats, contacts, map, network, settings
+│        │ companion protocol frames
+│  libmeshcore.so (NDK)                    │
+│    MyMesh (MeshCore companion firmware)  │
+│    SX1262 driver ── Ch341Bridge (usbdevfs)│
+└──────────────────┬───────────────────────┘
+                   │ USB OTG
+            USB MeshStick (CH341A 1a86:5512 + SX1262)
+```
+
+- The MeshCore node runs **on the phone**. The MeshStick is only the radio, driven over USB (CH341 SPI/GPIO).
+- Identity, contacts and channels are stored by the app; message history lives in SQLite on the phone.
+- A foreground service keeps the radio running with the screen off.
+
+## Screens
+
+<p align="center">
+  <img src="docs/screens/en-1-conversas.jpg" width="200" alt="Chats: channels and direct messages">
+  <img src="docs/screens/en-7-chat-direto.jpg" width="200" alt="Direct message with delivery confirmation">
+  <img src="docs/screens/en-2-contatos.jpg" width="200" alt="Contacts filtered by type">
+</p>
+<p align="center">
+  <img src="docs/screens/en-9-admin-repetidor.jpg" width="200" alt="Remote repeater admin">
+  <img src="docs/screens/en-4-rede.jpg" width="200" alt="Network: stats and charts">
+  <img src="docs/screens/en-5-config.jpg" width="200" alt="Radio settings by region">
+</p>
+
+Same look as [MeshSDR-Android](https://github.com/engperini/MeshSDR-Android): dark "night sky" theme, translucent
+cards and cyan accents. The screens above are rendered by the tests (`ScreenshotTest`) with sample data.
+
+## Features
+
+The app is in **English and Portuguese**: it follows the phone's language and can be switched in
+**Settings → Language**.
+
+- 💬 **Chats**: group channels and direct messages in one list, with unread counts and the last message.
+  - **Channels**: *Public* comes preconfigured. Create a **#hashtag** channel (everyone using the same `#name` joins
+    the same chat), a **new private** channel (random key) or join one **with a key**. To share, long-press the
+    channel → **QR code**.
+  - **Direct messages**: *sending → sent → delivered ✓✓* from the recipient's ACK, with the round-trip time. Tap an
+    unconfirmed message to resend it.
+  - **Rooms (room servers)**: log in from the chat itself; posts show their author.
+- 👥 **Contacts**: search, filters (chat, repeater, room, sensor), sorting (recent, name, hops) and "last seen".
+  The contact screen shows the route (repeaters on the path), with **Discover route** (out and back), **Use this
+  route**, **Reset**, **QR code**, zero-hop share and remove. In "add manually" mode, heard nodes wait in
+  **Discovered** with an Add button.
+- 🛠️ **Remote admin** of repeaters, rooms and sensors:
+  - admin or guest **login** (the password can be remembered);
+  - **status**: battery, uptime, queue, packets, flood/direct, airtime, RSSI/SNR and noise;
+  - encrypted **CLI terminal**, with shortcuts (`ver`, `clock`, `neighbors`, `get radio`…).
+- 🔳 **`meshcore://` QR codes**, compatible with the official app: show yours, a contact's or a channel's, scan them
+  with the camera, or open a `meshcore://` link from another app.
+- 🗺️ **Map** of contacts with GPS, on OpenStreetMap with no API key (like MeshCoreRPI's web map), in night mode.
+- 📊 **Network**, like the Pi web dashboard:
+  - node stats: received/sent, flood/direct, SNR, RSSI, noise, uptime, airtime, errors;
+  - SNR/RSSI chart and packet counts by type;
+  - **radio diagnostics** (`radio-diag`) and the received-packet log.
+- ⚙️ **Settings**:
+  - **Radio in 3 steps**: pick the **region** (Brazil, USA/Canada, EU/UK, Australia, New Zealand), then the **path
+    bytes** (1/2/3; MeshCore Brasil uses 2) and the **power**. Frequency, BW, SF, CR and repeat mode are under
+    *Advanced*.
+  - **Advert**: manual (flood or zero-hop) and automatic (1 h, 3 h, 12 h).
+  - **Contacts**: add automatically or manually, by type, and replace the oldest when the list is full.
+  - **Telemetry**: who can read your battery (nobody, favourites, everyone).
+  - **Location** in the advert (typed or from the phone's GPS).
+  - **Identity backup**: export and restore the private key.
+  - **Language**: system, English or Português.
+- 🔔 New-message notifications, the radio keeps running with the screen off, and the app opens by itself when you
+  plug in the MeshStick.
+
+## Compared with the official MeshCore app and MeshCoreRPI
+
+| Feature | Official MeshCore app | MeshCoreRPI (Pi) | MeshCore USB (this app) |
+|---|---|---|---|
+| How it reaches the radio | BLE/USB to a node running firmware | SPI/USB on the Pi; clients over TCP | **USB OTG straight to the MeshStick, the node runs on the phone** |
+| Public, #hashtag and private channels | ✅ | via a client | ✅ |
+| Direct messages with ACK and resend | ✅ | via a client | ✅ |
+| Rooms (room servers) | ✅ | via a client | ✅ login + authors |
+| Repeater admin (login, status, CLI) | ✅ | ✅ (local web/CLI) | ✅ |
+| Discover / set route | ✅ | — | ✅ |
+| `meshcore://` QR codes | ✅ | — | ✅ show, scan, open links |
+| Contact map | ✅ | ✅ (web map) | ✅ OpenStreetMap |
+| Radio presets by region | ✅ | README | ✅ region → bytes → power |
+| Path hash size | ✅ | ✅ | ✅ |
+| Automatic advert | hourly | ✅ (minutes) | ✅ |
+| Stats, charts, packet log | partial | ✅ (web dashboard) | ✅ Network tab |
+| Radio diagnostics (`radio-diag`) | — | ✅ | ✅ |
+| Identity backup (private key) | ✅ | — | ✅ |
+| English and Portuguese | ✅ | — | ✅ |
+| Sensor telemetry, trace path | ✅ | — | not yet |
+
+## Hardware
+
+| Radio | Connection | Status |
+|---|---|---|
+| USB MeshStick (CH341A `1a86:5512` + SX1262), e.g. the Elecrow MeshStick | USB OTG | ✅ supported, field-tested |
+
+Pins, TCXO (DIO3) and RF switch (DIO2) are preset for the MeshStick (CH341 D0/D2/D4/D6), as in MeshCoreRPI.
+
+You need:
+
+- An Android 8.0+ phone with **USB host/OTG** (almost all current phones).
+- An **OTG** adapter or cable (e.g. USB-C → USB-A female).
+- An **antenna** on the MeshStick **before** powering it.
+
+## Install
+
+1. Download `MeshCoreUSB.apk` from **Releases** or from the latest run in **Actions**.
+2. Install it. Android will ask you to allow installs from unknown sources.
+3. Attach the antenna, plug the MeshStick into the phone with OTG, and allow **MeshCore USB to open** and to
+   **access the USB device**. Tick "always" so it doesn't ask again.
+4. In **Settings** → **LoRa radio**, pick your **region** (default: Brazil 923.125 MHz, 62.5 kHz, SF8, CR8), the
+   **path bytes** (Brazil: 2) and tap **Apply**. Under **Identity**, give your node a name.
+5. Menu ⋮ → **Send advert (flood)** to be discovered. Then open the *Public* channel and say hi 👋
+
+To update, install the new APK over the old one: identity, contacts and messages are kept as long as both APKs have
+the same signature. Before changing phones or reinstalling, use **Settings → Identity backup → Export**.
+
+> [!TIP]
+> Some phones switch OTG off after a while or save battery aggressively. If the radio stops with the screen off,
+> turn off battery optimisation for MeshCore USB.
+
+## Build
+
+Requirements: JDK 17, Android SDK (platform 35), NDK `27.2.12479018` and CMake `3.22.1`.
+
+```bash
+./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease      # R8-minified APK
+```
+
+Signing: if `app/meshcore-debug.jks` exists (or `MESHCORE_KEYSTORE_FILE`, `MESHCORE_KEYSTORE_PASSWORD`,
+`MESHCORE_KEY_ALIAS` and `MESHCORE_KEY_PASSWORD` are set), every APK gets the same signature. Without it, the
+machine's debug key is used. The key is kept out of git.
+
+### Tests (real firmware, two nodes)
+
+`tools/hosttest` builds a **PC test node** from the same sources as `libmeshcore.so`, with a UDP "radio" on
+localhost. `TwoNodeMeshTest` starts two nodes and drives them with the app's protocol code (`Protocol.kt`):
+
+- adverts and the contact list;
+- direct messages with ACK;
+- Public and #hashtag channels;
+- radio parameters, location, contact removal;
+- manual add of a discovered contact;
+- `meshcore://` links, saved routes, stats, auto-add rules, key backup and route discovery.
+
+`ScreenshotTest` / `ScreenshotTestEn` (Robolectric) render the main screens in Portuguese and English to
+`app/build/screenshots/`.
+
+```bash
+tools/hosttest/build.sh
+./gradlew testDebugUnitTest
+```
+
+The `.github/workflows/android.yml` workflow runs the tests and builds the APK on every push. On `v*` tags it
+attaches the APK to the release.
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| `app/src/main/cpp/meshcore/` | MeshCore core (`src/`), companion firmware (`companion_radio/`), ed25519 and Crypto (rweather), copied from MeshCoreRPI |
+| `app/src/main/cpp/android/` | Android layer: `Ch341Bridge` over usbdevfs, SX1262 driver, target (battery/clock), `AndroidSerialInterface`, JNI |
+| `app/src/main/java/.../core/` | `Protocol.kt` (companion frames), `MeshController.kt` (state, command queue, messages), `NativeMesh.kt` (JNI), `Lang.kt` (EN/PT) |
+| `app/src/main/java/.../service/` | Foreground service + USB (permission, fd, wake lock, notifications) |
+| `app/src/main/java/.../ui/` | Compose screens |
+| `tools/hosttest/` | PC test node (same firmware, UDP radio) |
+
+Compile-time limits (as in MeshCoreRPI): `MAX_CONTACTS=500`, `MAX_GROUP_CHANNELS=20`, in
+`app/src/main/cpp/CMakeLists.txt`.
+
+## Credits and license
+
+- [MeshCore](https://github.com/meshcore-dev/MeshCore) by Scott Powell / rippleradios.com: MIT.
+- [MeshCoreRPI](https://github.com/engperini/MeshCoreRPI): native Linux port, SX1262 and CH341 driver.
+- [Arduino Crypto](https://github.com/rweather/arduinolibs) by Rhys Weatherley: MIT.
+- ed25519 by Orson Peters: zlib.
+
+MIT license, see [LICENSE](LICENSE).
+
+---
+
+# Português
+
+[English](#meshcore-usb-androidmeshcore) · **Português**
+
+Rode um nó **[MeshCore](https://github.com/meshcore-dev/MeshCore) completo dentro do celular Android**.
+Você pluga um **USB MeshStick** (CH341 + SX1262) no celular com um cabo **OTG** e já sai usando:
+canais em grupo, mensagens diretas, contatos, salas, administração de repetidores, mapa e configurações de rádio,
+tudo no mesmo app. Não precisa gravar firmware, nem de Bluetooth, nem de um segundo app.
+
+<p align="center">
+  <img src="docs/hardware.jpg" alt="Celular Android com o USB MeshStick conectado por cabo OTG" width="300"><br>
+  <sub>Funcionando de verdade: celular Android + USB MeshStick num adaptador OTG, recebendo a malha MeshCore Brasil.</sub>
 </p>
 
 > [!WARNING]
@@ -39,20 +250,23 @@ fala com eles pelo protocolo companion oficial.
 ## Telas
 
 <p align="center">
-  <img src="docs/screens/1-conversas.jpg" width="200" alt="Conversas: canais e mensagens diretas">
-  <img src="docs/screens/7-chat-direto.jpg" width="200" alt="Mensagem direta com confirmação de entrega">
-  <img src="docs/screens/2-contatos.jpg" width="200" alt="Contatos com filtro por tipo">
+  <img src="docs/screens/pt-1-conversas.jpg" width="200" alt="Conversas: canais e mensagens diretas">
+  <img src="docs/screens/pt-7-chat-direto.jpg" width="200" alt="Mensagem direta com confirmação de entrega">
+  <img src="docs/screens/pt-2-contatos.jpg" width="200" alt="Contatos com filtro por tipo">
 </p>
 <p align="center">
-  <img src="docs/screens/9-admin-repetidor.jpg" width="200" alt="Administração remota de repetidor">
-  <img src="docs/screens/4-rede.jpg" width="200" alt="Rede: estatísticas e gráficos">
-  <img src="docs/screens/5-config.jpg" width="200" alt="Configuração por região">
+  <img src="docs/screens/pt-9-admin-repetidor.jpg" width="200" alt="Administração remota de repetidor">
+  <img src="docs/screens/pt-4-rede.jpg" width="200" alt="Rede: estatísticas e gráficos">
+  <img src="docs/screens/pt-5-config.jpg" width="200" alt="Configuração por região">
 </p>
 
 Mesmo visual do [MeshSDR-Android](https://github.com/engperini/MeshSDR-Android): tema escuro "céu noturno", cards
 translúcidos e destaques em ciano. As telas acima são renderizadas pelos testes (`ScreenshotTest`) com dados de exemplo.
 
 ## Funcionalidades
+
+O app está em **português e inglês**: segue o idioma do celular e pode ser trocado em **Config → Idioma**.
+
 
 - 💬 **Conversas**: canais em grupo e mensagens diretas numa lista só, com não lidas e a última mensagem.
   - **Canais**: o *Public* já vem configurado. Você pode criar **#hashtag** (todos que usam o mesmo `#nome` entram
@@ -87,6 +301,7 @@ translúcidos e destaques em ciano. As telas acima são renderizadas pelos teste
   - **Telemetria**: com quem compartilhar a bateria (ninguém, favoritos, todos).
   - **Localização** no advert (digitada ou pelo GPS).
   - **Backup da identidade**: exportar e restaurar a chave privada.
+  - **Idioma**: sistema, English ou Português.
 - 🔔 Notificações de mensagens novas, rádio ativo com a tela apagada, e o app abre sozinho quando você pluga o
   MeshStick.
 
@@ -108,6 +323,7 @@ translúcidos e destaques em ciano. As telas acima são renderizadas pelos teste
 | Estatísticas, gráficos, log de pacotes | parcial | ✅ (painel web) | ✅ aba Rede |
 | Diagnóstico do rádio (`radio-diag`) | — | ✅ | ✅ |
 | Backup da identidade (chave privada) | ✅ | — | ✅ |
+| Inglês e português | ✅ | — | ✅ |
 | Telemetria de sensores, trace path | ✅ | — | ainda não |
 
 ## Hardware
@@ -169,7 +385,7 @@ protocolo do app (`Protocol.kt`) para exercitar:
 - adição manual de contato descoberto;
 - links `meshcore://`, rota salva, estatísticas, regras de auto-adicionar, backup da chave e descoberta de rota.
 
-`ScreenshotTest` (Robolectric) renderiza as telas principais em `app/build/screenshots/`.
+`ScreenshotTest` / `ScreenshotTestEn` (Robolectric) renderizam as telas principais em português e inglês em `app/build/screenshots/`.
 
 ```bash
 tools/hosttest/build.sh

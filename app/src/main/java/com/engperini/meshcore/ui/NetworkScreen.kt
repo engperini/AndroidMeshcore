@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -55,8 +56,8 @@ fun NetworkScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatTile("Recebidos", "${stats.recv}", Modifier.weight(1f), sub = "flood ${stats.recvFlood} • dir ${stats.recvDirect}")
-                StatTile("Enviados", "${stats.sent}", Modifier.weight(1f), sub = "flood ${stats.sentFlood} • dir ${stats.sentDirect}")
+                StatTile(tr("Received", "Recebidos"), "${stats.recv}", Modifier.weight(1f), sub = "flood ${stats.recvFlood} • ${tr("direct", "dir")} ${stats.recvDirect}")
+                StatTile(tr("Sent", "Enviados"), "${stats.sent}", Modifier.weight(1f), sub = "flood ${stats.sentFlood} • ${tr("direct", "dir")} ${stats.sentDirect}")
             }
         }
         item {
@@ -66,24 +67,24 @@ fun NetworkScreen() {
                     stats.lastSnr >= -10 -> Mesh.AMBER
                     else -> Mesh.RED
                 }
-                StatTile("Último SNR", "%.1f dB".format(Locale.US, stats.lastSnr), Modifier.weight(1f), snrColor)
-                StatTile("Último RSSI", "${stats.lastRssi} dBm", Modifier.weight(1f))
-                StatTile("Ruído", "${stats.noiseFloor} dBm", Modifier.weight(1f))
+                StatTile(tr("Last SNR", "Último SNR"), "%.1f dB".format(Locale.US, stats.lastSnr), Modifier.weight(1f), snrColor)
+                StatTile(tr("Last RSSI", "Último RSSI"), "${stats.lastRssi} dBm", Modifier.weight(1f))
+                StatTile(tr("Noise", "Ruído"), "${stats.noiseFloor} dBm", Modifier.weight(1f))
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatTile("Uptime", uptime(stats.uptimeSecs), Modifier.weight(1f))
-                StatTile("No ar TX / RX", "${stats.txAirSecs}s / ${stats.rxAirSecs}s", Modifier.weight(1f))
-                StatTile("Erros RX", "${stats.recvErrors}", Modifier.weight(1f), if (stats.recvErrors > 0) Mesh.AMBER else Mesh.TEXT)
+                StatTile(tr("Uptime", "Uptime"), uptime(stats.uptimeSecs), Modifier.weight(1f))
+                StatTile(tr("Airtime TX / RX", "No ar TX / RX"), "${stats.txAirSecs}s / ${stats.rxAirSecs}s", Modifier.weight(1f))
+                StatTile(tr("RX errors", "Erros RX"), "${stats.recvErrors}", Modifier.weight(1f), if (stats.recvErrors > 0) Mesh.AMBER else Mesh.TEXT)
             }
         }
         item {
             MeshCard {
-                CardTitle("Sinal dos pacotes recebidos")
+                CardTitle(tr("Signal of received packets", "Sinal dos pacotes recebidos"))
                 val recent = log.take(60).reversed()
                 if (recent.size < 2) {
-                    Muted("O gráfico aparece quando chegarem pacotes.", size = 12)
+                    Muted(tr("The chart appears when packets arrive.", "O gráfico aparece quando chegarem pacotes."), size = 12)
                 } else {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Legend("SNR (dB)", Mesh.ACCENT)
@@ -95,9 +96,9 @@ fun NetworkScreen() {
         }
         item {
             MeshCard {
-                CardTitle("Tipos de pacote")
+                CardTitle(tr("Packet types", "Tipos de pacote"))
                 val counts = log.groupingBy { it.type }.eachCount().entries.sortedByDescending { it.value }
-                if (counts.isEmpty()) Muted("Nenhum pacote ainda.", size = 12)
+                if (counts.isEmpty()) Muted(tr("No packets yet.", "Nenhum pacote ainda."), size = 12)
                 val max = counts.maxOfOrNull { it.value } ?: 1
                 counts.forEach { (type, n) -> Bar(type, n, max) }
                 val routes = log.groupingBy { it.route }.eachCount()
@@ -107,8 +108,8 @@ fun NetworkScreen() {
         item { DiagCard(diag) }
         item {
             MeshCard {
-                CardTitle("Pacotes recebidos (${log.size})")
-                if (log.isEmpty()) Muted("Nenhum pacote ainda.", size = 12)
+                CardTitle(tr("Received packets (${log.size})", "Pacotes recebidos (${log.size})"))
+                if (log.isEmpty()) Muted(tr("No packets yet.", "Nenhum pacote ainda."), size = 12)
                 log.take(50).forEach { p ->
                     Text(
                         "${fmt.format(Date(p.time))} ${p.type.padEnd(9)} ${p.route.padEnd(8)} SNR %5.1f RSSI %4d %3dB".format(Locale.US, p.snr, p.rssi, p.len),
@@ -123,16 +124,16 @@ fun NetworkScreen() {
 @Composable
 private fun DiagCard(diag: String) {
     MeshCard {
-        CardTitle("Diagnóstico do rádio")
+        CardTitle(tr("Radio diagnostics", "Diagnóstico do rádio"))
         val json = runCatching { JSONObject(diag) }.getOrNull()
         if (json == null || json.length() == 0) {
-            Muted("Sem dados ainda.", size = 12)
+            Muted(tr("No data yet.", "Sem dados ainda."), size = 12)
             return@MeshCard
         }
         val labels = linkedMapOf(
-            "driver" to "Driver", "status" to "Status SX1262", "freq" to "Frequência (Hz)", "bw" to "Banda (Hz)",
-            "sf" to "SF", "cr" to "CR", "tx" to "TX (dBm)", "noise_floor" to "Piso de ruído", "dev_errors_hex" to "Erros do chip",
-            "tcxo" to "TCXO (DIO3)", "dio2_rf" to "Chave RF (DIO2)",
+            "driver" to "Driver", "status" to tr("SX1262 status", "Status SX1262"), "freq" to tr("Frequency (Hz)", "Frequência (Hz)"), "bw" to tr("Bandwidth (Hz)", "Banda (Hz)"),
+            "sf" to "SF", "cr" to "CR", "tx" to "TX (dBm)", "noise_floor" to tr("Noise floor", "Piso de ruído"), "dev_errors_hex" to tr("Chip errors", "Erros do chip"),
+            "tcxo" to "TCXO (DIO3)", "dio2_rf" to tr("RF switch (DIO2)", "Chave RF (DIO2)"),
         )
         labels.forEach { (k, l) -> if (json.has(k)) KeyValue(l, json.get(k).toString()) }
     }

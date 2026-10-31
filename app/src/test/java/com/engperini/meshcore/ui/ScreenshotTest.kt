@@ -37,7 +37,10 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
-class ScreenshotTest {
+open class ScreenshotTest {
+    /** Language of the screenshots; [ScreenshotTestEn] renders them in English. */
+    open val portuguese = true
+
     @get:Rule val rule = createAndroidComposeRule<ComponentActivity>()
 
     private fun key(seed: Int) = ByteArray(32) { (it * 7 + seed).toByte() }
@@ -49,6 +52,7 @@ class ScreenshotTest {
 
     @Before
     fun setUp() {
+        com.engperini.meshcore.core.Lang.portuguese = portuguese
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val self = SelfInfo(1, 22, 22, key(9), -23.2, -46.9, 0, 1, 0, false, 923125, 62500, 8, 8, "Arthur | AndroidFirmware")
         val device = DeviceInfo(10, 500, 20, "6 Mar 2026", "Android", "v1.14.0-android", false, 1)
@@ -105,7 +109,7 @@ class ScreenshotTest {
         val bmp = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         view.draw(android.graphics.Canvas(bmp))
         val dir = File("build/screenshots").apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        File(dir, "${if (portuguese) "pt" else "en"}-$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test fun chats() = shot("1-conversas") { Home(Tab.CHATS, {}, Nav(), {}) }
@@ -133,4 +137,12 @@ class ScreenshotTest {
         )
         AdminScreen(repeater.keyHex, Nav())
     }
+}
+
+/** Same screens in English. */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+class ScreenshotTestEn : ScreenshotTest() {
+    override val portuguese = false
 }

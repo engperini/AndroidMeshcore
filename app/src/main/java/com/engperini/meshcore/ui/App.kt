@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,12 +65,14 @@ import java.util.Locale
 /** A conversation the user can open: a group channel or a direct chat (also rooms). */
 data class Conversation(val key: String, val title: String, val isChannel: Boolean, val channelIndex: Int = -1, val prefixHex: String = "")
 
-enum class Tab(val label: String, val icon: ImageVector) {
-    CHATS("Conversas", Icons.Default.Email),
-    CONTACTS("Contatos", Icons.Default.Person),
-    MAP("Mapa", Icons.Default.LocationOn),
-    NETWORK("Rede", Icons.Default.Info),
-    SETTINGS("Config", Icons.Default.Settings),
+enum class Tab(private val en: String, private val pt: String, val icon: ImageVector) {
+    CHATS("Chats", "Conversas", Icons.Default.Email),
+    CONTACTS("Contacts", tr("Contacts", "Contatos"), Icons.Default.Person),
+    MAP("Map", "Mapa", Icons.Default.LocationOn),
+    NETWORK("Network", "Rede", Icons.Default.Info),
+    SETTINGS("Settings", "Config", Icons.Default.Settings);
+
+    val label: String get() = tr(en, pt)
 }
 
 /** Screens above the tabs. */
@@ -156,30 +159,30 @@ fun Header(onConnect: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text("MeshCore USB", color = Mesh.TEXT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             val summary = self?.let { s ->
-                val bytes = device?.let { " • ${it.pathHashMode + 1} byte${if (it.pathHashMode > 0) "s" else ""}" } ?: ""
+                val bytes = device?.let { " • " + bytesLabel(it.pathHashMode + 1) } ?: ""
                 "${s.name} • ${"%.3f".format(Locale.US, s.freqKhz / 1000.0)} MHz$bytes"
-            } ?: "MeshCore no celular via USB MeshStick"
+            } ?: tr("MeshCore on your phone via a USB MeshStick", "MeshCore no celular via USB MeshStick")
             Muted(summary, size = 12, maxLines = 1)
         }
         val (label, color) = when (link.state) {
-            LinkState.RUNNING -> "Ativo" to Mesh.GREEN
-            LinkState.STARTING -> "Iniciando" to Mesh.AMBER
-            LinkState.ERROR -> "Erro" to Mesh.RED
-            LinkState.NO_DEVICE -> "Sem rádio" to Mesh.MUTED
+            LinkState.RUNNING -> tr("On", "Ativo") to Mesh.GREEN
+            LinkState.STARTING -> tr("Starting", "Iniciando") to Mesh.AMBER
+            LinkState.ERROR -> tr("Error", "Erro") to Mesh.RED
+            LinkState.NO_DEVICE -> tr("No radio", "Sem rádio") to Mesh.MUTED
         }
         Box(Modifier.clickable { if (link.state != LinkState.RUNNING) onConnect() }) { StatusChip(label, color) }
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Menu", tint = Mesh.MUTED) }
+            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, tr("Menu", "Menu"), tint = Mesh.MUTED) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(
-                    text = { Text("Enviar advert (flood)") }, enabled = link.state == LinkState.RUNNING,
+                    text = { Text(tr("Send advert (flood)", "Enviar advert (flood)")) }, enabled = link.state == LinkState.RUNNING,
                     onClick = { menu = false; MeshController.sendAdvert(true) },
                 )
                 DropdownMenuItem(
-                    text = { Text("Enviar advert (zero-hop)") }, enabled = link.state == LinkState.RUNNING,
+                    text = { Text(tr("Send advert (zero-hop)", "Enviar advert (zero-hop)")) }, enabled = link.state == LinkState.RUNNING,
                     onClick = { menu = false; MeshController.sendAdvert(false) },
                 )
-                DropdownMenuItem(text = { Text("Reconectar rádio") }, onClick = { menu = false; onConnect() })
+                DropdownMenuItem(text = { Text(tr("Reconnect radio", "Reconectar rádio")) }, onClick = { menu = false; onConnect() })
             }
         }
     }
@@ -220,15 +223,18 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
 fun ConnectPanel(state: LinkState, message: String, onConnect: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center) {
         MeshCard {
-            CardTitle(if (state == LinkState.STARTING) "Iniciando o rádio…" else "Rádio desconectado")
+            CardTitle(if (state == LinkState.STARTING) tr("Starting the radio…", "Iniciando o rádio…") else tr("Radio disconnected", "Rádio desconectado"))
             Muted(message)
             Spacer(Modifier.height(4.dp))
             Muted(
-                "1. Coloque a antena no MeshStick.\n" +
-                    "2. Conecte-o ao celular com um cabo ou adaptador USB OTG.\n" +
-                    "3. Aceite abrir o MeshCore USB e permitir o acesso ao dispositivo.",
+                tr(
+                    "1. Attach the antenna to the MeshStick.\n2. Plug it into the phone with a USB OTG cable or adapter.\n" +
+                        "3. Allow MeshCore USB to open and to access the device.",
+                    "1. Coloque a antena no MeshStick.\n2. Conecte-o ao celular com um cabo ou adaptador USB OTG.\n" +
+                        "3. Aceite abrir o MeshCore USB e permitir o acesso ao dispositivo.",
+                ),
             )
-            if (state != LinkState.STARTING) Pill("Conectar", Modifier.fillMaxWidth(), PillStyle.PRIMARY, onClick = onConnect)
+            if (state != LinkState.STARTING) Pill(tr("Connect", "Conectar"), Modifier.fillMaxWidth(), PillStyle.PRIMARY, onClick = onConnect)
         }
     }
 }
@@ -237,16 +243,16 @@ fun ConnectPanel(state: LinkState, message: String, onConnect: () -> Unit) {
 @Composable
 fun LinkDialog(link: MeshLink, onDone: () -> Unit) {
     val (title, body) = when (link) {
-        is MeshLink.AddContact -> "Adicionar contato?" to "${link.name}\nChave ${link.pubKey.copyOf(8).toHex()}…"
-        is MeshLink.AddChannel -> "Adicionar canal?" to "${link.name}\nChave ${link.secret.toHex()}"
+        is MeshLink.AddContact -> tr("Add contact?", "Adicionar contato?") to "${link.name}\n${tr("Key", "Chave")} ${link.pubKey.copyOf(8).toHex()}…"
+        is MeshLink.AddChannel -> tr("Add channel?", "Adicionar canal?") to "${link.name}\n${tr("Key", "Chave")} ${link.secret.toHex()}"
     }
     AlertDialog(
         onDismissRequest = onDone,
         containerColor = Mesh.SURFACE_2,
         title = { Text(title) },
         text = { Text(body) },
-        confirmButton = { Pill("Adicionar", style = PillStyle.PRIMARY) { MeshController.importLink(link); onDone() } },
-        dismissButton = { Pill("Cancelar", style = PillStyle.TEXT, onClick = onDone) },
+        confirmButton = { Pill(tr("Add", "Adicionar"), style = PillStyle.PRIMARY) { MeshController.importLink(link); onDone() } },
+        dismissButton = { Pill(tr("Cancel", "Cancelar"), style = PillStyle.TEXT, onClick = onDone) },
     )
 }
 
@@ -285,13 +291,13 @@ fun formatTime(epochSec: Long): String {
 }
 
 fun ago(epochSec: Long): String {
-    if (epochSec <= 0) return "nunca"
+    if (epochSec <= 0) return tr("never", "nunca")
     val s = System.currentTimeMillis() / 1000 - epochSec
     return when {
-        s < 60 -> "agora"
-        s < 3600 -> "há ${s / 60} min"
-        s < 86400 -> "há ${s / 3600} h"
-        else -> "há ${s / 86400} d"
+        s < 60 -> tr("now", "agora")
+        s < 3600 -> tr("${s / 60} min ago", "há ${s / 60} min")
+        s < 86400 -> tr("${s / 3600} h ago", "há ${s / 3600} h")
+        else -> tr("${s / 86400} d ago", "há ${s / 86400} d")
     }
 }
 
@@ -305,6 +311,10 @@ fun ByteArray.prefixHex(): String = copyOf(6).toHex()
 
 fun hopsLabel(pathLen: Int): String = when (val h = com.engperini.meshcore.core.Protocol.hops(pathLen)) {
     null -> "flood"
-    0 -> "direto"
-    else -> "$h salto(s)"
+    0 -> tr("direct", "direto")
+    else -> hopsCount(h)
 }
+
+fun hopsCount(h: Int): String = tr(if (h == 1) "1 hop" else "$h hops", "$h salto(s)")
+
+fun bytesLabel(b: Int): String = tr(if (b == 1) "1 byte" else "$b bytes", if (b == 1) "1 byte" else "$b bytes")

@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -61,15 +62,17 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Region presets: pick the region, then the path hash size. Confirm with your local community. */
-data class Region(val label: String, val freqMhz: Double, val bwKhz: Double, val sf: Int, val cr: Int, val hashBytes: Int = 1)
+data class Region(val en: String, val pt: String, val freqMhz: Double, val bwKhz: Double, val sf: Int, val cr: Int, val hashBytes: Int = 1) {
+    val label: String get() = tr(en, pt)
+}
 
 val REGIONS = listOf(
-    Region("Brasil (MeshCore Brasil)", 923.125, 62.5, 8, 8, hashBytes = 2),
-    Region("EUA / Canadá (recomendado)", 910.525, 62.5, 7, 5),
-    Region("EU / UK (narrow)", 869.618, 62.5, 8, 8),
-    Region("EU / UK (longo alcance)", 869.525, 250.0, 11, 5),
-    Region("Austrália", 915.8, 250.0, 10, 5),
-    Region("Nova Zelândia", 917.375, 250.0, 11, 5),
+    Region("Brazil (MeshCore Brasil)", "Brasil (MeshCore Brasil)", 923.125, 62.5, 8, 8, hashBytes = 2),
+    Region("USA / Canada (recommended)", "EUA / Canadá (recomendado)", 910.525, 62.5, 7, 5),
+    Region("EU / UK (narrow)", "EU / UK (narrow)", 869.618, 62.5, 8, 8),
+    Region("EU / UK (long range)", "EU / UK (longo alcance)", 869.525, 250.0, 11, 5),
+    Region("Australia", "Austrália", 915.8, 250.0, 10, 5),
+    Region("New Zealand", "Nova Zelândia", 917.375, 250.0, 11, 5),
 )
 
 val BANDWIDTHS = listOf(7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125.0, 250.0, 500.0)
@@ -93,12 +96,13 @@ fun SettingsScreen(onConnect: () -> Unit) {
         } else {
             item {
                 MeshCard {
-                    CardTitle("Rádio")
-                    Muted("Conecte o MeshStick para ver e alterar as configurações do nó.")
-                    Pill("Conectar", Modifier.fillMaxWidth(), PillStyle.PRIMARY, onClick = onConnect)
+                    CardTitle(tr("Radio", "Rádio"))
+                    Muted(tr("Connect the MeshStick to see and change the node settings.", "Conecte o MeshStick para ver e alterar as configurações do nó."))
+                    Pill(tr("Connect", "Conectar"), Modifier.fillMaxWidth(), PillStyle.PRIMARY, onClick = onConnect)
                 }
             }
         }
+        item { LanguageCard() }
         item { ServiceCard(running) }
     }
 }
@@ -123,10 +127,10 @@ private fun RadioCard() {
     var repeat by remember(device?.clientRepeat) { mutableStateOf(device?.clientRepeat == true) }
 
     MeshCard {
-        CardTitle("Rádio LoRa")
-        Muted("Todos os nós da malha precisam usar exatamente os mesmos parâmetros.", size = 12)
+        CardTitle(tr("LoRa radio", "Rádio LoRa"))
+        Muted(tr("Every node in the mesh must use exactly the same parameters.", "Todos os nós da malha precisam usar exatamente os mesmos parâmetros."), size = 12)
 
-        Text("1. Região", color = Mesh.TEXT, fontWeight = FontWeight.Medium)
+        Text(tr("1. Region", "1. Região"), color = Mesh.TEXT, fontWeight = FontWeight.Medium)
         Box {
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Mesh.SURFACE_2)
@@ -134,7 +138,7 @@ private fun RadioCard() {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(region?.label ?: "Personalizado", color = Mesh.TEXT, fontWeight = FontWeight.SemiBold)
+                    Text(region?.label ?: tr("Custom", "Personalizado"), color = Mesh.TEXT, fontWeight = FontWeight.SemiBold)
                     val r = region
                     Muted(
                         if (r != null) "%.3f MHz • %s kHz • SF%d • CR%d".format(Locale.US, r.freqMhz, trimNum(r.bwKhz), r.sf, r.cr)
@@ -156,17 +160,17 @@ private fun RadioCard() {
                         onClick = { menu = false; region = r; hashBytes = r.hashBytes; advanced = false },
                     )
                 }
-                DropdownMenuItem(text = { Text("Personalizado…") }, onClick = { menu = false; region = null; advanced = true })
+                DropdownMenuItem(text = { Text(tr("Custom…", "Personalizado…")) }, onClick = { menu = false; region = null; advanced = true })
             }
         }
 
-        Text("2. Bytes do caminho (hash por salto)", color = Mesh.TEXT, fontWeight = FontWeight.Medium)
+        Text(tr("2. Path bytes (hash per hop)", "2. Bytes do caminho (hash por salto)"), color = Mesh.TEXT, fontWeight = FontWeight.Medium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            (1..3).forEach { b -> MeshChip("$b byte${if (b > 1) "s" else ""}", hashBytes == b, Modifier.weight(1f)) { hashBytes = b } }
+            (1..3).forEach { b -> MeshChip(bytesLabel(b), hashBytes == b, Modifier.weight(1f)) { hashBytes = b } }
         }
-        Muted("Use o mesmo da sua comunidade. A MeshCore Brasil usa 2 bytes.", size = 12)
+        Muted(tr("Use the same as your community. MeshCore Brasil uses 2 bytes.", "Use o mesmo da sua comunidade. A MeshCore Brasil usa 2 bytes."), size = 12)
 
-        Text("3. Potência de transmissão: ${tx.roundToInt()} dBm", color = Mesh.TEXT, fontWeight = FontWeight.Medium)
+        Text(tr("3. Transmit power: ${tx.roundToInt()} dBm", "3. Potência de transmissão: ${tx.roundToInt()} dBm"), color = Mesh.TEXT, fontWeight = FontWeight.Medium)
         Slider(
             tx, { tx = it }, valueRange = -9f..s.maxTxPower.toFloat(), steps = s.maxTxPower + 8,
             colors = SliderDefaults.colors(thumbColor = Mesh.ACCENT, activeTrackColor = Mesh.ACCENT, inactiveTrackColor = Mesh.SURFACE_2,
@@ -174,9 +178,9 @@ private fun RadioCard() {
         )
 
         if (advanced) {
-            Text("Avançado", color = Mesh.ACCENT, fontWeight = FontWeight.Medium)
-            MeshField(freq, { freq = it }, "Frequência (MHz)")
-            Muted("Largura de banda (kHz)", size = 12)
+            Text(tr("Advanced", "Avançado"), color = Mesh.ACCENT, fontWeight = FontWeight.Medium)
+            MeshField(freq, { freq = it }, tr("Frequency (MHz)", "Frequência (MHz)"))
+            Muted(tr("Bandwidth (kHz)", "Largura de banda (kHz)"), size = 12)
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 BANDWIDTHS.forEach { b -> MeshChip(trimNum(b), bw == b) { bw = b } }
@@ -188,9 +192,9 @@ private fun RadioCard() {
             }
             Muted("Coding rate", size = 12)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { (5..8).forEach { v -> MeshChip("4/$v", cr == v) { cr = v } } }
-            MeshSwitchRow("Repetir pacotes", repeat, "O companion também funciona como repetidor") { repeat = it }
+            MeshSwitchRow(tr("Repeat packets", "Repetir pacotes"), repeat, tr("The companion also works as a repeater", "O companion também funciona como repetidor")) { repeat = it }
         } else {
-            Pill("Avançado: frequência, BW, SF, CR, repetidor", Modifier.fillMaxWidth(), PillStyle.TEXT) { advanced = true }
+            Pill(tr("Advanced: frequency, BW, SF, CR, repeater", "Avançado: frequência, BW, SF, CR, repetidor"), Modifier.fillMaxWidth(), PillStyle.TEXT) { advanced = true }
         }
 
         val r = region
@@ -198,7 +202,7 @@ private fun RadioCard() {
         val bwHz = if (r != null && !advanced) (r.bwKhz * 1000).roundToInt() else (bw * 1000).roundToInt()
         val sfV = if (r != null && !advanced) r.sf else sf
         val crV = if (r != null && !advanced) r.cr else cr
-        Pill("Aplicar", Modifier.fillMaxWidth(), PillStyle.PRIMARY, enabled = freqKhz != null) {
+        Pill(tr("Apply", "Aplicar"), Modifier.fillMaxWidth(), PillStyle.PRIMARY, enabled = freqKhz != null) {
             MeshController.setRadio(freqKhz!!, bwHz, sfV, crV, tx.roundToInt(), repeat)
             if (hashBytes - 1 != device?.pathHashMode) MeshController.setPathHashMode(hashBytes - 1)
         }
@@ -217,17 +221,17 @@ private fun IdentityCard() {
     val s = self ?: return
 
     MeshCard {
-        CardTitle("Identidade")
-        MeshField(name, { if (it.toByteArray().size <= 31) name = it }, "Nome do nó")
+        CardTitle(tr("Identity", "Identidade"))
+        MeshField(name, { if (it.toByteArray().size <= 31) name = it }, tr("Node name", "Nome do nó"))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill("Salvar nome", Modifier.weight(1f), PillStyle.PRIMARY, enabled = name.isNotBlank() && name != s.name) { MeshController.setName(name) }
-            Pill("Meu QR code", Modifier.weight(1f)) { qr = true }
+            Pill(tr("Save name", "Salvar nome"), Modifier.weight(1f), PillStyle.PRIMARY, enabled = name.isNotBlank() && name != s.name) { MeshController.setName(name) }
+            Pill(tr("My QR code", "Meu QR code"), Modifier.weight(1f)) { qr = true }
         }
         Text(s.pubKey.toHex(), color = Mesh.MUTED, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-        Pill("Copiar chave pública", Modifier.fillMaxWidth(), PillStyle.TEXT) { clipboard.setText(AnnotatedString(s.pubKey.toHex())) }
-        device?.let { Muted("Firmware ${it.version} (${it.buildDate}) • ${it.maxContacts} contatos • ${it.maxChannels} canais", size = 12) }
+        Pill(tr("Copy public key", "Copiar chave pública"), Modifier.fillMaxWidth(), PillStyle.TEXT) { clipboard.setText(AnnotatedString(s.pubKey.toHex())) }
+        device?.let { Muted("Firmware ${it.version} (${it.buildDate}) • ${it.maxContacts} ${tr("contacts", "contatos")} • ${it.maxChannels} ${tr("channels", "canais")}", size = 12) }
     }
-    if (qr) QrDialog(s.name, "Escaneie no MeshCore para me adicionar", Protocol.contactUri(s.name, s.pubKey, Protocol.ADV_TYPE_CHAT)) { qr = false }
+    if (qr) QrDialog(s.name, tr("Scan in MeshCore to add me", "Escaneie no MeshCore para me adicionar"), Protocol.contactUri(s.name, s.pubKey, Protocol.ADV_TYPE_CHAT)) { qr = false }
 }
 
 @Composable
@@ -237,16 +241,16 @@ private fun AdvertCard() {
     MeshCard {
         CardTitle("Advert")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill("Enviar (flood)", Modifier.weight(1f)) { MeshController.sendAdvert(true) }
-            Pill("Zero-hop", Modifier.weight(1f)) { MeshController.sendAdvert(false) }
+            Pill(tr("Send (flood)", "Enviar (flood)"), Modifier.weight(1f)) { MeshController.sendAdvert(true) }
+            Pill(tr("Zero-hop", "Zero-hop"), Modifier.weight(1f)) { MeshController.sendAdvert(false) }
         }
-        Text("Automático", color = Mesh.TEXT, fontWeight = FontWeight.Medium)
+        Text(tr("Automatic", "Automático"), color = Mesh.TEXT, fontWeight = FontWeight.Medium)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(0 to "Off", 60 to "1 h", 180 to "3 h", 720 to "12 h").forEach { (m, l) ->
+            listOf(0 to tr("Off", "Off"), 60 to "1 h", 180 to "3 h", 720 to "12 h").forEach { (m, l) ->
                 MeshChip(l, minutes == m, Modifier.weight(1f)) { minutes = m; MeshController.setAutoAdvert(m, flood) }
             }
         }
-        MeshSwitchRow("Flood (alcança toda a malha)", flood) { flood = it; MeshController.setAutoAdvert(minutes, it) }
+        MeshSwitchRow(tr("Flood (reaches the whole mesh)", "Flood (alcança toda a malha)"), flood) { flood = it; MeshController.setAutoAdvert(minutes, it) }
     }
 }
 
@@ -260,29 +264,29 @@ private fun ContactsPolicyCard() {
     fun setBit(bit: Int, on: Boolean) = MeshController.setAutoAdd(if (on) cfg or bit else cfg and bit.inv(), maxHops)
 
     MeshCard {
-        CardTitle("Contatos e telemetria")
-        MeshSwitchRow("Adicionar novos nós automaticamente", !s.manualAddContacts, "Desligado: aparecem em Contatos → Descobertos") {
+        CardTitle(tr("Contacts and telemetry", "Contatos e telemetria"))
+        MeshSwitchRow(tr("Add new nodes automatically", "Adicionar novos nós automaticamente"), !s.manualAddContacts, tr("Off: they show up in Contacts → Discovered", "Desligado: aparecem em Contatos → Descobertos")) {
             MeshController.setManualAdd(!it)
         }
         if (s.manualAddContacts) {
-            Muted("Mesmo no modo manual, adicionar automaticamente:", size = 12)
+            Muted(tr("Even in manual mode, add automatically:", "Mesmo no modo manual, adicionar automaticamente:"), size = 12)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MeshChip("Chat", cfg and Protocol.AUTOADD_CHAT != 0) { setBit(Protocol.AUTOADD_CHAT, cfg and Protocol.AUTOADD_CHAT == 0) }
-                MeshChip("Repetidor", cfg and Protocol.AUTOADD_REPEATER != 0) { setBit(Protocol.AUTOADD_REPEATER, cfg and Protocol.AUTOADD_REPEATER == 0) }
-                MeshChip("Sala", cfg and Protocol.AUTOADD_ROOM != 0) { setBit(Protocol.AUTOADD_ROOM, cfg and Protocol.AUTOADD_ROOM == 0) }
+                MeshChip(tr("Repeater", "Repetidor"), cfg and Protocol.AUTOADD_REPEATER != 0) { setBit(Protocol.AUTOADD_REPEATER, cfg and Protocol.AUTOADD_REPEATER == 0) }
+                MeshChip(tr("Room", "Sala"), cfg and Protocol.AUTOADD_ROOM != 0) { setBit(Protocol.AUTOADD_ROOM, cfg and Protocol.AUTOADD_ROOM == 0) }
             }
         }
-        MeshSwitchRow("Substituir o mais antigo quando cheio", cfg and Protocol.AUTOADD_OVERWRITE_OLDEST != 0) {
+        MeshSwitchRow(tr("Replace the oldest when full", "Substituir o mais antigo quando cheio"), cfg and Protocol.AUTOADD_OVERWRITE_OLDEST != 0) {
             setBit(Protocol.AUTOADD_OVERWRITE_OLDEST, it)
         }
         val base = s.telemetryModes and 0x03
-        Text("Compartilhar bateria (telemetria) com", color = Mesh.TEXT, fontWeight = FontWeight.Medium)
+        Text(tr("Share battery (telemetry) with", "Compartilhar bateria (telemetria) com"), color = Mesh.TEXT, fontWeight = FontWeight.Medium)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(0 to "Ninguém", 1 to "Favoritos", 2 to "Todos").forEach { (m, l) ->
+            listOf(0 to tr("Nobody", "Ninguém"), 1 to tr("Favourites", "Favoritos"), 2 to tr("Everyone", "Todos")).forEach { (m, l) ->
                 MeshChip(l, base == m, Modifier.weight(1f)) { MeshController.setTelemetryBase(m) }
             }
         }
-        Muted("\"Todos\" permite que outros descubram a rota até você.", size = 12)
+        Muted(tr("\"Everyone\" lets others discover the route to you.", "\"Todos\" permite que outros descubram a rota até você."), size = 12)
     }
 }
 
@@ -299,17 +303,17 @@ private fun LocationCard() {
     }
 
     MeshCard {
-        CardTitle("Localização")
-        MeshSwitchRow("Incluir localização no advert", share) { share = it }
+        CardTitle(tr("Location", "Localização"))
+        MeshSwitchRow(tr("Include location in the advert", "Incluir localização no advert"), share) { share = it }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.weight(1f)) { MeshField(lat, { lat = it }, "Latitude") }
             Box(Modifier.weight(1f)) { MeshField(lon, { lon = it }, "Longitude") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill("GPS do celular", Modifier.weight(1f)) {
+            Pill(tr("Phone GPS", "GPS do celular"), Modifier.weight(1f)) {
                 launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
             }
-            Pill("Salvar", Modifier.weight(1f), PillStyle.PRIMARY) {
+            Pill(tr("Save", "Salvar"), Modifier.weight(1f), PillStyle.PRIMARY) {
                 MeshController.setLocation(lat.toDoubleOrNull() ?: 0.0, lon.toDoubleOrNull() ?: 0.0, share)
             }
         }
@@ -335,28 +339,28 @@ private fun BackupCard() {
     var input by remember { mutableStateOf("") }
 
     MeshCard {
-        CardTitle("Backup da identidade")
-        Muted("A chave privada é a sua identidade na malha. Guarde-a para restaurar o nó após reinstalar o app ou trocar de celular.", size = 12)
+        CardTitle(tr("Identity backup", "Backup da identidade"))
+        Muted(tr("The private key is your identity on the mesh. Keep it to restore the node after reinstalling the app or changing phones.", "A chave privada é a sua identidade na malha. Guarde-a para restaurar o nó após reinstalar o app ou trocar de celular."), size = 12)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Pill("Exportar", Modifier.weight(1f)) { scope.launch { exported = MeshController.exportPrivateKey()?.toHex() ?: "" } }
-            Pill("Restaurar", Modifier.weight(1f), PillStyle.OUTLINED) { importing = true }
+            Pill(tr("Export", "Exportar"), Modifier.weight(1f)) { scope.launch { exported = MeshController.exportPrivateKey()?.toHex() ?: "" } }
+            Pill(tr("Restore", "Restaurar"), Modifier.weight(1f), PillStyle.OUTLINED) { importing = true }
         }
     }
     exported?.let { key ->
         AlertDialog(
             onDismissRequest = { exported = null },
             containerColor = Mesh.SURFACE_2,
-            title = { Text("Chave privada") },
+            title = { Text(tr("Private key", "Chave privada")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (key.isEmpty()) Text("O nó não exportou a chave.") else {
-                        Text("Não compartilhe: quem tiver esta chave pode se passar por você.", color = Mesh.AMBER, fontSize = 13.sp)
+                    if (key.isEmpty()) Text(tr("The node did not export the key.", "O nó não exportou a chave.")) else {
+                        Text(tr("Don't share it: whoever has this key can impersonate you.", "Não compartilhe: quem tiver esta chave pode se passar por você."), color = Mesh.AMBER, fontSize = 13.sp)
                         Text(key, color = Mesh.TEXT, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             },
-            confirmButton = { if (key.isNotEmpty()) Pill("Copiar", style = PillStyle.PRIMARY) { clipboard.setText(AnnotatedString(key)); exported = null } },
-            dismissButton = { Pill("Fechar", style = PillStyle.TEXT) { exported = null } },
+            confirmButton = { if (key.isNotEmpty()) Pill(tr("Copy", "Copiar"), style = PillStyle.PRIMARY) { clipboard.setText(AnnotatedString(key)); exported = null } },
+            dismissButton = { Pill(tr("Close", "Fechar"), style = PillStyle.TEXT) { exported = null } },
         )
     }
     if (importing) {
@@ -364,22 +368,41 @@ private fun BackupCard() {
         AlertDialog(
             onDismissRequest = { importing = false },
             containerColor = Mesh.SURFACE_2,
-            title = { Text("Restaurar identidade") },
+            title = { Text(tr("Restore identity", "Restaurar identidade")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Substitui a identidade atual deste nó.", color = Mesh.AMBER, fontSize = 13.sp)
-                    MeshField(input, { input = it }, "Chave privada (128 hex)", singleLine = false, isError = input.isNotBlank() && bytes?.size != 64)
+                    Text(tr("Replaces this node's current identity.", "Substitui a identidade atual deste nó."), color = Mesh.AMBER, fontSize = 13.sp)
+                    MeshField(input, { input = it }, tr("Private key (128 hex)", "Chave privada (128 hex)"), singleLine = false, isError = input.isNotBlank() && bytes?.size != 64)
                 }
             },
             confirmButton = {
-                Pill("Restaurar", style = PillStyle.PRIMARY, enabled = bytes?.size == 64) {
+                Pill(tr("Restore", "Restaurar"), style = PillStyle.PRIMARY, enabled = bytes?.size == 64) {
                     MeshController.importPrivateKey(bytes!!)
                     importing = false
                     input = ""
                 }
             },
-            dismissButton = { Pill("Cancelar", style = PillStyle.TEXT) { importing = false } },
+            dismissButton = { Pill(tr("Cancel", "Cancelar"), style = PillStyle.TEXT) { importing = false } },
         )
+    }
+}
+
+@Composable
+private fun LanguageCard() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("app", Context.MODE_PRIVATE) }
+    var choice by remember { mutableStateOf(prefs.getString("language", null)) }
+    MeshCard {
+        CardTitle(tr("Language", "Idioma"))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(null to tr("System", "Sistema"), "en" to "English", "pt" to "Português").forEach { (code, label) ->
+                MeshChip(label, choice == code, Modifier.weight(1f)) {
+                    choice = code
+                    prefs.edit().putString("language", code).apply()
+                    com.engperini.meshcore.core.Lang.apply(code)
+                }
+            }
+        }
     }
 }
 
@@ -388,10 +411,10 @@ private fun ServiceCard(running: Boolean) {
     val context = LocalContext.current
     val device by MeshController.device.collectAsState()
     MeshCard {
-        CardTitle("Serviço")
-        Muted("O rádio continua funcionando com a tela apagada enquanto o MeshStick estiver conectado.", size = 12)
+        CardTitle(tr("Service", "Serviço"))
+        Muted(tr("The radio keeps working with the screen off while the MeshStick is connected.", "O rádio continua funcionando com a tela apagada enquanto o MeshStick estiver conectado."), size = 12)
         if (running) {
-            Pill("Parar rádio", Modifier.fillMaxWidth(), PillStyle.OUTLINED) {
+            Pill(tr("Stop radio", "Parar rádio"), Modifier.fillMaxWidth(), PillStyle.OUTLINED) {
                 context.startService(Intent(context, MeshService::class.java).setAction(MeshService.ACTION_STOP))
             }
         }

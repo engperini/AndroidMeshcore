@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import android.util.Base64
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,7 @@ fun ChatsScreen(nav: Nav) {
     var adding by remember { mutableStateOf(false) }
     var scanned by remember { mutableStateOf<MeshLink?>(null) }
     val scan = rememberQrScanner { link ->
-        if (link == null) MeshController.notice("QR code não é do MeshCore") else scanned = link
+        if (link == null) MeshController.notice(tr("Not a MeshCore QR code", "QR code não é do MeshCore")) else scanned = link
     }
 
     val used = channels.filterNot { it.isEmpty }
@@ -58,24 +59,24 @@ fun ChatsScreen(nav: Nav) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill("+ Canal", Modifier.weight(1f), PillStyle.PRIMARY) { adding = true }
-                Pill("Ler QR code", Modifier.weight(1f), PillStyle.OUTLINED, onClick = scan)
+                Pill(tr("+ Channel", "+ Canal"), Modifier.weight(1f), PillStyle.PRIMARY) { adding = true }
+                Pill(tr("Scan QR code", "Ler QR code"), Modifier.weight(1f), PillStyle.OUTLINED, onClick = scan)
             }
         }
-        item { SectionHeader("Canais") }
+        item { SectionHeader(tr("Channels", "Canais")) }
         item {
             MeshCard {
-                if (used.isEmpty()) Muted("Nenhum canal configurado.")
+                if (used.isEmpty()) Muted(tr("No channels configured.", "Nenhum canal configurado."))
                 used.forEach { ch ->
                     val conv = Conversation(ConvKey.channel(ch.secretHex), ch.name, true, channelIndex = ch.index)
                     ChannelRow(ch, summaries[conv.key]) { nav.openChat(conv) }
                 }
             }
         }
-        item { SectionHeader("Mensagens diretas e salas") }
+        item { SectionHeader(tr("Direct messages and rooms", "Mensagens diretas e salas")) }
         item {
             MeshCard {
-                if (directs.isEmpty()) Muted("Abra um contato para conversar. Salas e repetidores ficam em Contatos.")
+                if (directs.isEmpty()) Muted(tr("Open a contact to chat. Rooms and repeaters are in Contacts.", "Abra um contato para conversar. Salas e repetidores ficam em Contatos."))
                 directs.forEach { (conv, type, s) ->
                     ListRow(
                         title = conv.title,
@@ -114,29 +115,33 @@ private fun ChannelRow(ch: Channel, s: com.engperini.meshcore.data.ConversationS
     Box {
         ListRow(
             title = "# " + ch.name.removePrefix("#"),
-            subtitle = s?.let { "${it.lastSender}: ${it.lastText}" } ?: "Sem mensagens",
+            subtitle = s?.let { "${it.lastSender}: ${it.lastText}" } ?: tr("No messages", "Sem mensagens"),
             avatar = { MeshAvatar(ch.name, Mesh.ACCENT) },
             onClick = onOpen,
             onLongClick = { menu = true },
             trailing = { TimeAndBadge(s?.lastTime, s?.unread ?: 0) },
         )
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text("Abrir") }, onClick = { menu = false; onOpen() })
-            DropdownMenuItem(text = { Text("Compartilhar (QR code)") }, onClick = { menu = false; qr = true })
+            DropdownMenuItem(text = { Text(tr("Open", "Abrir")) }, onClick = { menu = false; onOpen() })
+            DropdownMenuItem(text = { Text(tr("Share (QR code)", "Compartilhar (QR code)")) }, onClick = { menu = false; qr = true })
             if (ch.index != 0) {
                 DropdownMenuItem(
-                    text = { Text("Remover canal", color = Mesh.RED) },
+                    text = { Text(tr("Remove channel", "Remover canal"), color = Mesh.RED) },
                     onClick = { menu = false; MeshController.setChannel(ch.index, "", ByteArray(16)) },
                 )
             }
         }
     }
     if (qr) {
-        QrDialog("Canal ${ch.name}", "Chave ${ch.secretHex}", Protocol.channelUri(ch.name, ch.secret)) { qr = false }
+        QrDialog(tr("Channel ${ch.name}", "Canal ${ch.name}"), tr("Key ${ch.secretHex}", "Chave ${ch.secretHex}"), Protocol.channelUri(ch.name, ch.secret)) { qr = false }
     }
 }
 
-private enum class ChannelKind(val label: String) { HASHTAG("#hashtag"), PRIVATE_NEW("Privado novo"), PRIVATE_KEY("Com chave") }
+private enum class ChannelKind(private val en: String, private val pt: String) {
+    HASHTAG("#hashtag", "#hashtag"), PRIVATE_NEW("New private", "Privado novo"), PRIVATE_KEY("With key", "Com chave");
+
+    val label: String get() = tr(en, pt)
+}
 
 @Composable
 fun AddChannelDialog(freeIndex: Int?, onDismiss: () -> Unit, onSave: (String, ByteArray) -> Unit) {
@@ -156,27 +161,27 @@ fun AddChannelDialog(freeIndex: Int?, onDismiss: () -> Unit, onSave: (String, By
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Mesh.SURFACE_2,
-        title = { Text("Adicionar canal") },
+        title = { Text(tr("Add channel", "Adicionar canal")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (freeIndex == null) Text("Todos os slots de canal estão ocupados.", color = Mesh.RED, fontSize = 13.sp)
+                if (freeIndex == null) Text(tr("All channel slots are in use.", "Todos os slots de canal estão ocupados."), color = Mesh.RED, fontSize = 13.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ChannelKind.entries.forEach { k -> MeshChip(k.label, kind == k) { kind = k } }
                 }
-                MeshField(name, { if (it.toByteArray().size <= 31) name = it }, if (kind == ChannelKind.HASHTAG) "Nome (ex.: #brasil)" else "Nome do canal")
+                MeshField(name, { if (it.toByteArray().size <= 31) name = it }, if (kind == ChannelKind.HASHTAG) tr("Name (e.g. #brasil)", "Nome (ex.: #brasil)") else tr("Channel name", "Nome do canal"))
                 when (kind) {
-                    ChannelKind.HASHTAG -> Muted("Canal público por nome: quem usar o mesmo #nome entra na mesma conversa.", size = 12)
-                    ChannelKind.PRIVATE_NEW -> Muted("Gera uma chave aleatória. Compartilhe pelo QR code (toque e segure o canal).", size = 12)
-                    ChannelKind.PRIVATE_KEY -> MeshField(key, { key = it }, "Chave (32 hex ou base64)", isError = key.isNotBlank() && secret == null)
+                    ChannelKind.HASHTAG -> Muted(tr("Public channel by name: everyone using the same #name joins the same chat.", "Canal público por nome: quem usar o mesmo #nome entra na mesma conversa."), size = 12)
+                    ChannelKind.PRIVATE_NEW -> Muted(tr("Creates a random key. Share it by QR code (long-press the channel).", "Gera uma chave aleatória. Compartilhe pelo QR code (toque e segure o canal)."), size = 12)
+                    ChannelKind.PRIVATE_KEY -> MeshField(key, { key = it }, tr("Key (32 hex or base64)", "Chave (32 hex ou base64)"), isError = key.isNotBlank() && secret == null)
                 }
             }
         },
         confirmButton = {
-            Pill("Salvar", style = PillStyle.PRIMARY, enabled = freeIndex != null && trimmed.isNotEmpty() && secret != null) {
+            Pill(tr("Save", "Salvar"), style = PillStyle.PRIMARY, enabled = freeIndex != null && trimmed.isNotEmpty() && secret != null) {
                 onSave(finalName, secret!!)
             }
         },
-        dismissButton = { Pill("Cancelar", style = PillStyle.TEXT, onClick = onDismiss) },
+        dismissButton = { Pill(tr("Cancel", "Cancelar"), style = PillStyle.TEXT, onClick = onDismiss) },
     )
 }
 

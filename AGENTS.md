@@ -13,10 +13,14 @@ Android app that runs a full MeshCore companion node on the phone, with a USB Me
   `SX1262LinuxRadio`, `target_android.cpp`, `AndroidSerialInterface`, `jni_bridge.cpp`.
 - `app/src/main/java/com/engperini/meshcore/core/`: `Protocol.kt` (companion frames), `MeshController.kt`
   (state, serialized command queue, message history), `NativeMesh.kt` (JNI).
-- `service/`: foreground service owning the USB connection; `ui/`: Compose screens (Portuguese UI text).
+- `service/`: foreground service owning the USB connection; `ui/`: Compose screens in the MeshSDR "night sky" style
+  (`Theme.kt`, `Components.kt`).
 - `tools/hosttest/`: PC build of the same firmware with a UDP "radio", used by `TwoNodeMeshTest`.
 
 ## Rules
+
+- All user-visible text is bilingual: `tr("English", "Português")` (`core/Lang.kt`), never a bare string.
+  The README keeps an English and a Portuguese section in sync.
 
 - The app is the companion client: every node feature goes through companion frames, as MyMesh defines them.
   Check frame layouts in `MyMesh.cpp` before changing `Protocol.kt`, and extend `TwoNodeMeshTest`.
@@ -29,5 +33,5 @@ Android app that runs a full MeshCore companion node on the phone, with a USB Me
 
 ```bash
 tools/hosttest/build.sh
-./gradlew testDebugUnitTest assembleRelease
+./gradlew testDebugUnitTest assembleRelease   # screenshots in app/build/screenshots (pt-*, en-*)
 ```

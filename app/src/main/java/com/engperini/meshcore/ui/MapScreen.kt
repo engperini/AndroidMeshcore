@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import android.graphics.drawable.GradientDrawable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,7 +90,7 @@ fun MapScreen(nav: Nav) {
                     points.add(p)
                     map.overlays.add(Marker(map).apply {
                         position = p
-                        title = "${s.name} (você)"
+                        title = "${s.name} (${tr("you", "você")})"
                         icon = dot(Mesh.GREEN.toArgb(), map.context.resources.displayMetrics.density, big = true)
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     })
@@ -109,7 +110,7 @@ fun MapScreen(nav: Nav) {
             },
         )
         Column(Modifier.align(Alignment.TopStart).padding(10.dp)) {
-            StatusChip("${located.size} de ${contacts.size} contatos com posição", Mesh.ACCENT)
+            StatusChip(tr("${located.size} of ${contacts.size} contacts with position", "${located.size} de ${contacts.size} contatos com posição"), Mesh.ACCENT)
         }
         selected?.let { c ->
             Box(Modifier.align(Alignment.BottomCenter).padding(10.dp)) {
@@ -122,13 +123,13 @@ fun MapScreen(nav: Nav) {
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (c.type == Protocol.ADV_TYPE_CHAT || c.type == Protocol.ADV_TYPE_ROOM) {
-                            Pill("Mensagem", Modifier.weight(1f), PillStyle.PRIMARY) {
+                            Pill(tr("Message", "Mensagem"), Modifier.weight(1f), PillStyle.PRIMARY) {
                                 val p = c.pubKey.prefixHex()
                                 nav.openChat(Conversation(ConvKey.contact(p), c.name, false, prefixHex = p))
                             }
                         }
-                        Pill("Detalhes", Modifier.weight(1f)) { nav.push(Route.ContactDetail(c.keyHex)) }
-                        Pill("Fechar", Modifier.weight(1f), PillStyle.TEXT) { selected = null }
+                        Pill(tr("Details", "Detalhes"), Modifier.weight(1f)) { nav.push(Route.ContactDetail(c.keyHex)) }
+                        Pill(tr("Close", "Fechar"), Modifier.weight(1f), PillStyle.TEXT) { selected = null }
                     }
                 }
             }

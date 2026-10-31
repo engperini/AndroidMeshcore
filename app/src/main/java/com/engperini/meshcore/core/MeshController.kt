@@ -43,7 +43,7 @@ object MeshController {
     private lateinit var store: MessageStore
     private lateinit var prefs: SharedPreferences
 
-    private val _link = MutableStateFlow(LinkStatus(LinkState.NO_DEVICE, "Conecte o MeshStick via USB OTG"))
+    private val _link = MutableStateFlow(LinkStatus(LinkState.NO_DEVICE, tr("Connect the MeshStick over USB OTG", "Conecte o MeshStick via USB OTG")))
     val link: StateFlow<LinkStatus> = _link.asStateFlow()
 
     private val _self = MutableStateFlow<SelfInfo?>(null)
@@ -205,7 +205,7 @@ object MeshController {
                 scope.launch { handshake() }
             }
             NativeMesh.STATUS_ERROR -> _link.value = LinkStatus(LinkState.ERROR, message)
-            else -> _link.value = LinkStatus(LinkState.NO_DEVICE, "Conecte o MeshStick via USB OTG")
+            else -> _link.value = LinkStatus(LinkState.NO_DEVICE, tr("Connect the MeshStick over USB OTG", "Conecte o MeshStick via USB OTG"))
         }
     }
 
@@ -294,17 +294,17 @@ object MeshController {
             Protocol.PUSH_NEW_ADVERT -> {
                 Protocol.parseContact(f)?.let { c ->
                     _discovered.update { list -> listOf(c) + list.filterNot { it.pubKey.contentEquals(c.pubKey) } }
-                    notice("Nó descoberto: ${c.name} (adicione em Contatos)")
+                    notice(tr("Node discovered: ${c.name} (add it in Contacts)", "Nó descoberto: ${c.name} (adicione em Contatos)"))
                 }
             }
             // Auto-added contacts arrive as PUSH_ADVERT (new or updated): reload the list.
             Protocol.PUSH_ADVERT, Protocol.PUSH_PATH_UPDATED, Protocol.PUSH_CONTACT_DELETED -> scheduleContactsRefresh()
-            Protocol.PUSH_CONTACTS_FULL -> notice("Lista de contatos cheia")
+            Protocol.PUSH_CONTACTS_FULL -> notice(tr("Contact list is full", "Lista de contatos cheia"))
             Protocol.PUSH_LOGIN_SUCCESS, Protocol.PUSH_LOGIN_FAIL -> Protocol.parseLoginResult(f)?.let { r ->
                 val key = r.prefix.toHex()
                 _logins.update { it + (key to r) }
                 val name = contactByPrefix(key)?.name ?: key
-                notice(if (r.success) "Login em $name ok${if (r.isAdmin) " (admin)" else ""}" else "Login em $name recusado")
+                notice(if (r.success) tr("Logged in to $name", "Login em $name ok") + (if (r.isAdmin) " (admin)" else "") else tr("Login to $name refused", "Login em $name recusado"))
                 if (r.success && contactByPrefix(key)?.type == Protocol.ADV_TYPE_ROOM) scope.launch { syncMessages() }
             }
             Protocol.PUSH_STATUS_RESPONSE -> Protocol.parseRepeaterStatus(f)?.let { st ->
@@ -313,7 +313,7 @@ object MeshController {
             Protocol.PUSH_PATH_DISCOVERY_RESPONSE -> Protocol.parsePathDiscovery(f)?.let { pd ->
                 _paths.update { it + (pd.prefix.toHex() to pd) }
                 val name = contactByPrefix(pd.prefix.toHex())?.name ?: pd.prefix.toHex()
-                notice("Rota para $name: ${Protocol.hops(pd.outLen) ?: 0} salto(s)")
+                notice(tr("Route to $name: ${Protocol.hops(pd.outLen) ?: 0} hop(s)", "Rota para $name: ${Protocol.hops(pd.outLen) ?: 0} salto(s)"))
             }
             Protocol.PUSH_LOG_RX_DATA -> logRx(f)
         }
@@ -361,7 +361,7 @@ object MeshController {
             val sep = m.text.indexOf(": ")
             sender = if (sep > 0) m.text.substring(0, sep) else "?"
             text = if (sep > 0) m.text.substring(sep + 2) else m.text
-            title = ch?.name ?: "Canal ${m.channelIdx}"
+            title = ch?.name ?: tr("Channel ${m.channelIdx}", "Canal ${m.channelIdx}")
         } else {
             val prefix = m.senderPrefix!!
             val from = contactByPrefix(prefix.toHex())
@@ -380,7 +380,7 @@ object MeshController {
                 from?.name ?: prefix.toHex()
             }
             text = m.text
-            title = if (author != null) "${from?.name ?: "Sala"}: $sender" else sender
+            title = if (author != null) "${from?.name ?: tr("Room", "Sala")}: $sender" else sender
         }
         if (store.isDuplicate(conv, sender, text, m.timestamp)) return
         val reading = activeConversation == conv
@@ -434,7 +434,7 @@ object MeshController {
         if (resp == null || resp[0].toInt() != Protocol.RESP_SENT || resp.size < 10) {
             store.setStatus(id, MsgStatus.FAILED)
             bump()
-            if (resp?.get(0)?.toInt() == Protocol.RESP_ERR) notice("Contato não encontrado no nó")
+            if (resp?.get(0)?.toInt() == Protocol.RESP_ERR) notice(tr("Contact not found on the node", "Contato não encontrado no nó"))
             return
         }
         val b = ByteBuffer.wrap(resp).order(ByteOrder.LITTLE_ENDIAN)
@@ -459,18 +459,18 @@ object MeshController {
 
     fun sendAdvert(flood: Boolean) = scope.launch {
         notice(if (ok(requestOne(Protocol.sendSelfAdvert(flood)))) {
-            if (flood) "Advert enviado (flood)" else "Advert enviado (zero-hop)"
-        } else "Falha ao enviar advert")
+            if (flood) tr("Advert sent (flood)", "Advert enviado (flood)") else tr("Advert sent (zero-hop)", "Advert enviado (zero-hop)")
+        } else tr("Failed to send advert", "Falha ao enviar advert"))
     }
 
     fun setName(name: String) = scope.launch {
-        if (ok(requestOne(Protocol.setAdvertName(name.trim())))) refreshSelf() else notice("Falha ao salvar nome")
+        if (ok(requestOne(Protocol.setAdvertName(name.trim())))) refreshSelf() else notice(tr("Failed to save name", "Falha ao salvar nome"))
     }
 
     fun setRadio(freqKhz: Int, bwHz: Int, sf: Int, cr: Int, txDbm: Int, repeat: Boolean) = scope.launch {
         val a = ok(requestOne(Protocol.setRadioParams(freqKhz, bwHz, sf, cr, repeat)))
         val b = ok(requestOne(Protocol.setTxPower(txDbm)))
-        notice(if (a && b) "Parâmetros de rádio aplicados" else "Parâmetros inválidos")
+        notice(if (a && b) tr("Radio parameters applied", "Parâmetros de rádio aplicados") else tr("Invalid parameters", "Parâmetros inválidos"))
         refreshSelf()
         requestOne(Protocol.deviceQuery())?.let { Protocol.parseDeviceInfo(it) }?.let { _device.value = it }
         delay(500)
@@ -490,7 +490,7 @@ object MeshController {
             Protocol.setOtherParams(s.manualAddContacts, s.telemetryModes, if (share) 1 else 0, s.multiAcks),
         )
         refreshSelf()
-        notice("Localização salva")
+        notice(tr("Location saved", "Localização salva"))
     }
 
     /** Who may read our battery/telemetry: 0 nobody, 1 favourites, 2 everyone (needed to answer path discovery). */
@@ -510,9 +510,9 @@ object MeshController {
     fun setChannel(index: Int, name: String, secret: ByteArray) = scope.launch {
         if (ok(requestOne(Protocol.setChannel(index, name, secret)))) {
             refreshChannels()
-            notice(if (name.isBlank()) "Canal removido" else "Canal \"$name\" salvo")
+            notice(if (name.isBlank()) tr("Channel removed", "Canal removido") else tr("Channel \"$name\" saved", "Canal \"$name\" salvo"))
         } else {
-            notice("Falha ao salvar canal")
+            notice(tr("Failed to save channel", "Falha ao salvar canal"))
         }
     }
 
@@ -520,9 +520,9 @@ object MeshController {
         if (ok(requestOne(Protocol.addContact(c.raw)))) {
             _discovered.update { list -> list.filterNot { it.pubKey.contentEquals(c.pubKey) } }
             refreshContacts()
-            notice("${c.name} adicionado")
+            notice(tr("${c.name} added", "${c.name} adicionado"))
         } else {
-            notice("Falha ao adicionar (lista cheia?)")
+            notice(tr("Failed to add (list full?)", "Falha ao adicionar (lista cheia?)"))
         }
     }
 
@@ -534,7 +534,7 @@ object MeshController {
         prefs.edit().apply { if (remember) putString("pw_${c.keyHex}", password) else remove("pw_${c.keyHex}") }.apply()
         _logins.update { it - c.pubKey.copyOf(6).toHex() }
         val resp = requestOne(Protocol.login(c.pubKey, password))
-        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice("Falha ao enviar login") else notice("Login enviado…")
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice(tr("Failed to send login", "Falha ao enviar login")) else notice(tr("Login sent…", "Login enviado…"))
     }
 
     fun logout(c: Contact) = scope.launch {
@@ -544,14 +544,14 @@ object MeshController {
 
     fun requestStatus(c: Contact) = scope.launch {
         val resp = requestOne(Protocol.statusRequest(c.pubKey))
-        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice("Falha ao pedir status")
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice(tr("Failed to request status", "Falha ao pedir status"))
     }
 
     fun sendCli(c: Contact, command: String) = scope.launch {
         val key = c.pubKey.copyOf(6).toHex()
         addCli(key, CliLine(System.currentTimeMillis(), true, command))
         val resp = requestOne(Protocol.sendText(c.pubKey, command, now(), 0, Protocol.TXT_TYPE_CLI_DATA))
-        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) addCli(key, CliLine(System.currentTimeMillis(), false, "(falha ao enviar)"))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) addCli(key, CliLine(System.currentTimeMillis(), false, tr("(send failed)", "(falha ao enviar)")))
     }
 
     private fun addCli(key: String, line: CliLine) {
@@ -566,13 +566,13 @@ object MeshController {
 
     fun discoverPath(c: Contact) = scope.launch {
         val resp = requestOne(Protocol.pathDiscovery(c.pubKey))
-        notice(if (resp != null && resp[0].toInt() == Protocol.RESP_SENT) "Descobrindo rota para ${c.name}…" else "Falha ao descobrir rota")
+        notice(if (resp != null && resp[0].toInt() == Protocol.RESP_SENT) tr("Discovering route to ${c.name}…", "Descobrindo rota para ${c.name}…") else tr("Route discovery failed", "Falha ao descobrir rota"))
     }
 
     fun usePath(c: Contact, pd: PathDiscovery) = scope.launch {
         if (c.raw.size < 144) return@launch
         if (ok(requestOne(Protocol.setContactPath(c.raw, pd.outLen, pd.outPath)))) {
-            notice("Rota salva para ${c.name}")
+            notice(tr("Route saved for ${c.name}", "Rota salva para ${c.name}"))
             refreshContacts()
         }
     }
@@ -584,15 +584,15 @@ object MeshController {
             is MeshLink.AddContact -> {
                 if (ok(requestOne(Protocol.addContactByKey(link.pubKey, link.name, link.type)))) {
                     refreshContacts()
-                    notice("Contato ${link.name} adicionado")
-                } else notice("Falha ao adicionar contato")
+                    notice(tr("Contact ${link.name} added", "Contato ${link.name} adicionado"))
+                } else notice(tr("Failed to add contact", "Falha ao adicionar contato"))
             }
             is MeshLink.AddChannel -> {
                 val existing = _channels.value.firstOrNull { it.secret.contentEquals(link.secret) }
                 val free = _channels.value.firstOrNull { it.isEmpty }
                 when {
-                    existing != null -> notice("Canal ${existing.name} já existe")
-                    free == null -> notice("Todos os slots de canal estão ocupados")
+                    existing != null -> notice(tr("Channel ${existing.name} already exists", "Canal ${existing.name} já existe"))
+                    free == null -> notice(tr("All channel slots are in use", "Todos os slots de canal estão ocupados"))
                     else -> setChannel(free.index, link.name, link.secret)
                 }
             }
@@ -608,14 +608,14 @@ object MeshController {
 
     fun importPrivateKey(key: ByteArray) = scope.launch {
         if (key.size != 64) {
-            notice("Chave inválida (precisa de 64 bytes)")
+            notice(tr("Invalid key (needs 64 bytes)", "Chave inválida (precisa de 64 bytes)"))
             return@launch
         }
         if (ok(requestOne(Protocol.importPrivateKey(key)))) {
             refreshSelf()
             refreshContacts()
-            notice("Identidade restaurada")
-        } else notice("Chave recusada pelo nó")
+            notice(tr("Identity restored", "Identidade restaurada"))
+        } else notice(tr("Key refused by the node", "Chave recusada pelo nó"))
     }
 
     fun setAutoAdd(config: Int, maxHops: Int) = scope.launch {
@@ -628,13 +628,13 @@ object MeshController {
 
     fun resetPath(c: Contact) = scope.launch {
         if (ok(requestOne(Protocol.resetPath(c.pubKey)))) {
-            notice("Rota de ${c.name} redefinida (próxima msg vai por flood)")
+            notice(tr("Route to ${c.name} reset (next message goes by flood)", "Rota de ${c.name} redefinida (próxima msg vai por flood)"))
             refreshContacts()
         }
     }
 
     fun shareContact(c: Contact) = scope.launch {
-        notice(if (ok(requestOne(Protocol.shareContact(c.pubKey)))) "Contato compartilhado (zero-hop)" else "Falha ao compartilhar")
+        notice(if (ok(requestOne(Protocol.shareContact(c.pubKey)))) tr("Contact shared (zero-hop)", "Contato compartilhado (zero-hop)") else tr("Share failed", "Falha ao compartilhar"))
     }
 
     // ---- app settings (kept on the phone) ----

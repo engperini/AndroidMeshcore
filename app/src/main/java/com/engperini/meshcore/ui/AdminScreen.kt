@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -52,14 +53,14 @@ fun AdminScreen(keyHex: String, nav: Nav) {
     val c = contacts.firstOrNull { it.keyHex == keyHex }
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = Mesh.TEXT) }
+            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Voltar"), tint = Mesh.TEXT) }
             Column {
-                Text(c?.name ?: "Admin", color = Mesh.TEXT, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Muted("Administração remota", size = 12)
+                Text(c?.name ?: tr("Admin", "Admin"), color = Mesh.TEXT, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Muted(tr("Remote admin", "Administração remota"), size = 12)
             }
         }
         if (c == null) {
-            Empty("Contato não está mais na lista.")
+            Empty(tr("This contact is no longer in the list.", "Contato não está mais na lista."))
             return
         }
         Column(
@@ -84,17 +85,17 @@ fun LoginCard(c: Contact, compact: Boolean) {
     MeshCard {
         CardTitle("Login") {
             when {
-                login == null -> StatusChip("Desconectado", Mesh.MUTED)
-                login.success -> StatusChip(if (login.isAdmin) "Admin" else "Convidado", Mesh.GREEN)
-                else -> StatusChip("Recusado", Mesh.RED)
+                login == null -> StatusChip(tr("Disconnected", "Desconectado"), Mesh.MUTED)
+                login.success -> StatusChip(if (login.isAdmin) "Admin" else tr("Guest", "Convidado"), Mesh.GREEN)
+                else -> StatusChip(tr("Refused", "Recusado"), Mesh.RED)
             }
         }
         if (!compact || login?.success != true) {
-            MeshField(password, { password = it }, if (c.type == Protocol.ADV_TYPE_ROOM) "Senha da sala" else "Senha (vazio = convidado)")
-            MeshSwitchRow("Lembrar senha neste celular", keepPw) { keepPw = it }
+            MeshField(password, { password = it }, if (c.type == Protocol.ADV_TYPE_ROOM) tr("Room password", "Senha da sala") else tr("Password (empty = guest)", "Senha (vazio = convidado)"))
+            MeshSwitchRow(tr("Remember password on this phone", "Lembrar senha neste celular"), keepPw) { keepPw = it }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill("Entrar", Modifier.weight(1f), PillStyle.PRIMARY) { MeshController.login(c, password, keepPw) }
-                if (login?.success == true) Pill("Sair", Modifier.weight(1f), PillStyle.OUTLINED) { MeshController.logout(c) }
+                Pill(tr("Log in", "Entrar"), Modifier.weight(1f), PillStyle.PRIMARY) { MeshController.login(c, password, keepPw) }
+                if (login?.success == true) Pill(tr("Log out", "Sair"), Modifier.weight(1f), PillStyle.OUTLINED) { MeshController.logout(c) }
             }
         }
     }
@@ -105,21 +106,21 @@ private fun StatusCard(c: Contact) {
     val statuses by MeshController.repeaterStatus.collectAsState()
     val st = statuses[c.pubKey.prefixHex()]
     MeshCard {
-        CardTitle("Status") { Pill("Atualizar", style = PillStyle.TEXT) { MeshController.requestStatus(c) } }
+        CardTitle(tr("Status", "Status")) { Pill(tr("Refresh", "Atualizar"), style = PillStyle.TEXT) { MeshController.requestStatus(c) } }
         if (st == null) {
-            Muted("Toque em Atualizar para pedir o status (bateria, uptime, pacotes, ruído).", size = 12)
+            Muted(tr("Tap Refresh to request the status (battery, uptime, packets, noise).", "Toque em Atualizar para pedir o status (bateria, uptime, pacotes, ruído)."), size = 12)
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatTile("Bateria", "%.2f V".format(Locale.US, st.battMv / 1000.0), Modifier.weight(1f))
-                StatTile("Uptime", uptime(st.uptimeSecs), Modifier.weight(1f))
-                StatTile("Fila TX", "${st.txQueue}", Modifier.weight(1f))
+                StatTile(tr("Battery", "Bateria"), "%.2f V".format(Locale.US, st.battMv / 1000.0), Modifier.weight(1f))
+                StatTile(tr("Uptime", "Uptime"), uptime(st.uptimeSecs), Modifier.weight(1f))
+                StatTile(tr("TX queue", "Fila TX"), "${st.txQueue}", Modifier.weight(1f))
             }
-            KeyValue("Pacotes recebidos / enviados", "${st.packetsRecv} / ${st.packetsSent}")
+            KeyValue(tr("Packets received / sent", "Pacotes recebidos / enviados"), "${st.packetsRecv} / ${st.packetsSent}")
             KeyValue("Flood rx / tx", "${st.recvFlood} / ${st.sentFlood}")
-            KeyValue("Direto rx / tx", "${st.recvDirect} / ${st.sentDirect}")
-            KeyValue("Tempo no ar (TX)", uptime(st.airTimeSecs))
-            KeyValue("Último RSSI / SNR", "${st.lastRssi} dBm / %.1f dB".format(Locale.US, st.lastSnr))
-            KeyValue("Piso de ruído", "${st.noiseFloor} dBm")
+            KeyValue(tr("Direct rx / tx", "Direto rx / tx"), "${st.recvDirect} / ${st.sentDirect}")
+            KeyValue(tr("Airtime (TX)", "Tempo no ar (TX)"), uptime(st.airTimeSecs))
+            KeyValue(tr("Last RSSI / SNR", "Último RSSI / SNR"), "${st.lastRssi} dBm / %.1f dB".format(Locale.US, st.lastSnr))
+            KeyValue(tr("Noise floor", "Piso de ruído"), "${st.noiseFloor} dBm")
         }
     }
 }
@@ -133,8 +134,8 @@ private fun CliCard(c: Contact) {
     val scroll = rememberScrollState()
 
     MeshCard {
-        CardTitle("Terminal (CLI)") { if (lines.isNotEmpty()) Pill("Limpar", style = PillStyle.TEXT) { MeshController.clearCli(c) } }
-        Muted("Comandos vão criptografados para o nó. Os de configuração exigem login de admin.", size = 12)
+        CardTitle(tr("Terminal (CLI)", "Terminal (CLI)")) { if (lines.isNotEmpty()) Pill(tr("Clear", "Limpar"), style = PillStyle.TEXT) { MeshController.clearCli(c) } }
+        Muted(tr("Commands are sent encrypted to the node. Configuration commands need an admin login.", "Comandos vão criptografados para o nó. Os de configuração exigem login de admin."), size = 12)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             QUICK_COMMANDS.forEach { cmd -> MeshChip(cmd, false) { MeshController.sendCli(c, cmd) } }
         }
@@ -143,7 +144,7 @@ private fun CliCard(c: Contact) {
                 .background(Mesh.BG.copy(alpha = 0.7f)).padding(10.dp),
         ) {
             Column(Modifier.verticalScroll(scroll)) {
-                if (lines.isEmpty()) Muted("Sem saída ainda.", size = 12)
+                if (lines.isEmpty()) Muted(tr("No output yet.", "Sem saída ainda."), size = 12)
                 lines.forEach { l ->
                     Text(
                         "[${fmt.format(Date(l.time))}] ${if (l.outgoing) "> " else ""}${l.text}",
@@ -153,8 +154,8 @@ private fun CliCard(c: Contact) {
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { MeshField(command, { command = it }, "Comando") }
-            Pill("Enviar", style = PillStyle.PRIMARY, enabled = command.isNotBlank()) {
+            Box(Modifier.weight(1f)) { MeshField(command, { command = it }, tr("Command", "Comando")) }
+            Pill(tr("Send", "Enviar"), style = PillStyle.PRIMARY, enabled = command.isNotBlank()) {
                 MeshController.sendCli(c, command.trim())
                 command = ""
             }

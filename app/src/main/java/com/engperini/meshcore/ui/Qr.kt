@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,15 +57,15 @@ fun QrDialog(title: String, subtitle: String, uri: String, onDismiss: () -> Unit
                 Muted(subtitle, size = 12)
                 Text(uri, color = Mesh.MUTED, fontSize = 10.sp, maxLines = 3)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill("Copiar", Modifier.weight(1f)) { clipboard.setText(AnnotatedString(uri)) }
-                    Pill("Enviar", Modifier.weight(1f)) {
+                    Pill(tr("Copy", "Copiar"), Modifier.weight(1f)) { clipboard.setText(AnnotatedString(uri)) }
+                    Pill(tr("Send", "Enviar"), Modifier.weight(1f)) {
                         val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, uri)
                         context.startActivity(Intent.createChooser(send, title))
                     }
                 }
             }
         },
-        confirmButton = { Pill("Fechar", style = PillStyle.TEXT, onClick = onDismiss) },
+        confirmButton = { Pill(tr("Close", "Fechar"), style = PillStyle.TEXT, onClick = onDismiss) },
     )
 }
 
@@ -78,7 +79,7 @@ fun rememberQrScanner(onLink: (MeshLink?) -> Unit): () -> Unit {
         launcher.launch(
             ScanOptions()
                 .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                .setPrompt("Aponte para o QR code do contato ou canal")
+                .setPrompt(tr("Point at the contact or channel QR code", "Aponte para o QR code do contato ou canal"))
                 .setBeepEnabled(false)
                 .setOrientationLocked(false),
         )

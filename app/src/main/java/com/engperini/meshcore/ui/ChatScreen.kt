@@ -1,5 +1,6 @@
 package com.engperini.meshcore.ui
 
+import com.engperini.meshcore.core.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -84,7 +85,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         // Top bar
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = Mesh.TEXT) }
+            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back", "Voltar"), tint = Mesh.TEXT) }
             MeshAvatar(channel?.name ?: contact?.name ?: conv.title, if (conv.isChannel) Mesh.ACCENT else typeColor(contact?.type ?: 1), 38)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
@@ -93,17 +94,17 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
                     color = Mesh.TEXT, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 )
                 val sub = when {
-                    conv.isChannel -> "Canal em grupo"
-                    contact == null -> "Contato desconhecido"
-                    isRoom -> if (loggedIn) "Sala • conectado" else "Sala • faça login para ver as mensagens"
-                    else -> Protocol.hops(contact.outPathLen)?.let { "Rota direta: $it salto(s)" } ?: "Rota: flood"
+                    conv.isChannel -> tr("Group channel", "Canal em grupo")
+                    contact == null -> tr("Unknown contact", "Contato desconhecido")
+                    isRoom -> if (loggedIn) tr("Room • logged in", "Sala • conectado") else tr("Room • log in to see the messages", "Sala • faça login para ver as mensagens")
+                    else -> Protocol.hops(contact.outPathLen)?.let { tr("Direct route: ", "Rota direta: ") + hopsCount(it) } ?: tr("Route: flood", "Rota: flood")
                 }
                 Muted(sub, size = 12, maxLines = 1)
             }
             if (contact != null) {
-                IconButton(onClick = { nav.push(Route.ContactDetail(contact.keyHex)) }) { Icon(Icons.Default.Info, "Detalhes", tint = Mesh.MUTED) }
+                IconButton(onClick = { nav.push(Route.ContactDetail(contact.keyHex)) }) { Icon(Icons.Default.Info, tr("Details", "Detalhes"), tint = Mesh.MUTED) }
             }
-            IconButton(onClick = { confirmClear = true }) { Icon(Icons.Default.Delete, "Limpar", tint = Mesh.MUTED) }
+            IconButton(onClick = { confirmClear = true }) { Icon(Icons.Default.Delete, tr("Clear", "Limpar"), tint = Mesh.MUTED) }
         }
 
         if (isRoom && !loggedIn && contact != null) {
@@ -116,7 +117,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            if (messages.isEmpty()) item { Empty("Nenhuma mensagem ainda. Diga oi! 👋") }
+            if (messages.isEmpty()) item { Empty(tr("No messages yet. Say hi! 👋", "Nenhuma mensagem ainda. Diga oi! 👋")) }
             items(messages, key = { it.id }) { m ->
                 Bubble(m, showSender = conv.isChannel || isRoom) {
                     if (!conv.isChannel && m.outgoing && m.status == MsgStatus.FAILED) {
@@ -134,7 +135,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
         ) {
             Box(Modifier.weight(1f)) {
                 MeshField(
-                    input, { if (it.toByteArray().size <= MAX_TEXT_BYTES) input = it }, "Mensagem",
+                    input, { if (it.toByteArray().size <= MAX_TEXT_BYTES) input = it }, tr("Message", "Mensagem"),
                     singleLine = false, supporting = "$bytes/$MAX_TEXT_BYTES",
                 )
             }
@@ -149,7 +150,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
                     else MeshController.sendDirect(conv.prefixHex, text)
                     input = ""
                 },
-            ) { Icon(Icons.AutoMirrored.Filled.Send, "Enviar") }
+            ) { Icon(Icons.AutoMirrored.Filled.Send, tr("Send", "Enviar")) }
         }
     }
 
@@ -157,10 +158,10 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
             containerColor = Mesh.SURFACE_2,
-            title = { Text("Limpar histórico?") },
-            text = { Text("Apaga as mensagens desta conversa somente neste celular.") },
-            confirmButton = { Pill("Limpar", style = PillStyle.PRIMARY) { confirmClear = false; MeshController.clearConversation(conv.key) } },
-            dismissButton = { Pill("Cancelar", style = PillStyle.TEXT) { confirmClear = false } },
+            title = { Text(tr("Clear history?", "Limpar histórico?")) },
+            text = { Text(tr("Deletes this chat's messages on this phone only.", "Apaga as mensagens desta conversa somente neste celular.")) },
+            confirmButton = { Pill(tr("Clear", "Limpar"), style = PillStyle.PRIMARY) { confirmClear = false; MeshController.clearConversation(conv.key) } },
+            dismissButton = { Pill(tr("Cancel", "Cancelar"), style = PillStyle.TEXT) { confirmClear = false } },
         )
     }
 }
@@ -185,15 +186,15 @@ fun Bubble(m: Message, showSender: Boolean, onClick: () -> Unit) {
             val meta = buildList {
                 add(formatTime(m.timestamp))
                 if (!m.outgoing) {
-                    m.hops?.let { add(if (it == 0) "direto" else "$it salto(s)") } ?: add("rota direta")
+                    m.hops?.let { add(if (it == 0) tr("direct", "direto") else hopsCount(it)) } ?: add(tr("direct route", "rota direta"))
                     m.snr?.let { add("SNR %.1f".format(it)) }
                 } else {
                     add(
                         when (m.status) {
-                            MsgStatus.SENDING -> "enviando…"
-                            MsgStatus.SENT -> if (showSender) "✓ enviado" else "✓ enviado, aguardando confirmação"
-                            MsgStatus.DELIVERED -> "✓✓ entregue" + if (m.roundTripMs > 0) " (${m.roundTripMs / 1000.0}s)" else ""
-                            MsgStatus.FAILED -> if (showSender) "✗ falhou" else "✗ sem confirmação — toque para reenviar"
+                            MsgStatus.SENDING -> tr("sending…", "enviando…")
+                            MsgStatus.SENT -> if (showSender) tr("✓ sent", "✓ enviado") else tr("✓ sent, waiting for confirmation", "✓ enviado, aguardando confirmação")
+                            MsgStatus.DELIVERED -> tr("✓✓ delivered", "✓✓ entregue") + if (m.roundTripMs > 0) " (${m.roundTripMs / 1000.0}s)" else ""
+                            MsgStatus.FAILED -> if (showSender) tr("✗ failed", "✗ falhou") else tr("✗ not confirmed — tap to resend", "✗ sem confirmação — toque para reenviar")
                             MsgStatus.RECEIVED -> ""
                         },
                     )

@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.engperini.meshcore.core.Lang
 import com.engperini.meshcore.core.LinkState
 import com.engperini.meshcore.core.MeshController
 import com.engperini.meshcore.core.MeshLink
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Lang.apply(getSharedPreferences("app", MODE_PRIVATE).getString("language", null))
         MeshController.init(this)
         requestNotificationPermission()
         handleIntent(intent)

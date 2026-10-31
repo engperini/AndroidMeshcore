@@ -419,7 +419,7 @@ object Protocol {
             }
             "channel/add" -> {
                 val secret = params["secret"]?.hexToBytes()?.takeIf { it.size == 16 } ?: return null
-                MeshLink.AddChannel(params["name"] ?: "Canal", secret)
+                MeshLink.AddChannel(params["name"] ?: "Channel", secret)
             }
             else -> null
         }
@@ -479,8 +479,8 @@ data class Contact(
     val typeLabel: String
         get() = when (type) {
             Protocol.ADV_TYPE_CHAT -> "Chat"
-            Protocol.ADV_TYPE_REPEATER -> "Repetidor"
-            Protocol.ADV_TYPE_ROOM -> "Sala"
+            Protocol.ADV_TYPE_REPEATER -> tr("Repeater", "Repetidor")
+            Protocol.ADV_TYPE_ROOM -> tr("Room", "Sala")
             Protocol.ADV_TYPE_SENSOR -> "Sensor"
             else -> "?"
         }

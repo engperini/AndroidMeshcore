@@ -1,5 +1,6 @@
 package com.engperini.meshcore.service
 
+import com.engperini.meshcore.core.tr
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -47,7 +48,7 @@ class MeshService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             val d = intent.usbDevice() ?: return
             if (d.deviceName == device?.deviceName) {
-                MeshController.setNoDevice("MeshStick desconectado")
+                MeshController.setNoDevice(tr("MeshStick disconnected", "MeshStick desconectado"))
                 stopSelf()
             }
         }
@@ -82,7 +83,7 @@ class MeshService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startInForeground("Iniciando…")
+        startInForeground(tr("Starting…", "Iniciando…"))
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
@@ -90,7 +91,7 @@ class MeshService : Service() {
         val usb = getSystemService(USB_SERVICE) as UsbManager
         val target = intent?.usbDevice() ?: UsbHelper.findMeshStick(usb)
         if (target == null || !usb.hasPermission(target)) {
-            MeshController.setNoDevice("Conecte o MeshStick via USB OTG")
+            MeshController.setNoDevice(tr("Connect the MeshStick over USB OTG", "Conecte o MeshStick via USB OTG"))
             stopSelf()
             return START_NOT_STICKY
         }
@@ -106,7 +107,7 @@ class MeshService : Service() {
         closeDevice()
         val conn = usb.openDevice(target)
         if (conn == null) {
-            MeshController.setNoDevice("Não foi possível abrir o dispositivo USB")
+            MeshController.setNoDevice(tr("Could not open the USB device", "Não foi possível abrir o dispositivo USB"))
             stopSelf()
             return
         }
@@ -144,7 +145,7 @@ class MeshService : Service() {
         unregisterReceiver(batteryReceiver)
         MeshController.onIncoming = null
         if (MeshController.link.value.state == LinkState.RUNNING || MeshController.link.value.state == LinkState.STARTING) {
-            MeshController.setNoDevice("Serviço parado")
+            MeshController.setNoDevice(tr("Service stopped", "Serviço parado"))
         }
         scope.cancel()
         super.onDestroy()
@@ -154,8 +155,8 @@ class MeshService : Service() {
 
     private fun createChannels() {
         val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CH_SERVICE, "Rádio MeshCore", NotificationManager.IMPORTANCE_LOW))
-        nm.createNotificationChannel(NotificationChannel(CH_MESSAGES, "Mensagens", NotificationManager.IMPORTANCE_HIGH))
+        nm.createNotificationChannel(NotificationChannel(CH_SERVICE, tr("MeshCore radio", "Rádio MeshCore"), NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel(CH_MESSAGES, tr("Messages", "Mensagens"), NotificationManager.IMPORTANCE_HIGH))
     }
 
     private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
@@ -173,7 +174,7 @@ class MeshService : Service() {
             .setContentText(text)
             .setOngoing(true)
             .setContentIntent(openAppIntent())
-            .addAction(0, "Parar", stop)
+            .addAction(0, tr("Stop", "Parar"), stop)
             .build()
     }
 
@@ -188,7 +189,7 @@ class MeshService : Service() {
 
     private fun updateForeground(text: String, state: LinkState) {
         val label = when (state) {
-            LinkState.RUNNING -> "Rádio ativo — ${MeshController.self.value?.name ?: ""}"
+            LinkState.RUNNING -> tr("Radio on — ", "Rádio ativo — ") + (MeshController.self.value?.name ?: "")
             else -> text
         }
         getSystemService(NotificationManager::class.java).notify(NOTIF_SERVICE, buildServiceNotification(label))
