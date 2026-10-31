@@ -5,6 +5,11 @@ Você pluga um **USB MeshStick** (CH341 + SX1262) no celular com um cabo **OTG**
 canais em grupo, mensagens diretas, contatos e configurações de rádio, tudo no mesmo app.
 Não precisa gravar firmware, nem de Bluetooth, nem de um segundo app.
 
+<p align="center">
+  <img src="docs/hardware.jpg" alt="Celular Android com o USB MeshStick conectado por cabo OTG, app MeshCore USB mostrando o diagnóstico do rádio" width="360"><br>
+  <sub>Funcionando de verdade: celular Android + USB MeshStick (CH341 + SX1262) num adaptador OTG, recebendo a malha MeshCore Brasil.</sub>
+</p>
+
 > [!WARNING]
 > Use por sua conta e risco. Você é responsável por transmitir só em frequências e potências
 > permitidas onde você está.

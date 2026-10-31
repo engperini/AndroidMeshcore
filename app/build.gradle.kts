@@ -13,8 +13,8 @@ android {
         applicationId = "com.engperini.meshcore"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
@@ -26,13 +26,28 @@ android {
         }
     }
 
+    // Stable signing key, kept out of git (app/meshcore-debug.jks locally, or
+    // MESHCORE_KEYSTORE_* in CI). With it every build has the same signature,
+    // so new APKs install over the previous one and keep the node identity.
+    val keystoreFile = System.getenv("MESHCORE_KEYSTORE_FILE")?.let { file(it) } ?: file("meshcore-debug.jks")
+    val stableKey = keystoreFile.exists()
+    signingConfigs {
+        create("stable") {
+            storeFile = keystoreFile
+            storePassword = System.getenv("MESHCORE_KEYSTORE_PASSWORD") ?: "android"
+            keyAlias = System.getenv("MESHCORE_KEY_ALIAS") ?: "androiddebugkey"
+            keyPassword = System.getenv("MESHCORE_KEY_PASSWORD") ?: "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            if (stableKey) signingConfig = signingConfigs.getByName("stable")
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so the release APK installs directly;
-            // configure a real keystore before publishing to a store.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (stableKey) "stable" else "debug")
         }
     }
 

@@ -7,3 +7,5 @@ local.properties
 .externalNativeBuild/
 captures/
 .DS_Store
+*.jks
+*.keystore

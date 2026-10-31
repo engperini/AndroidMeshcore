@@ -13,6 +13,7 @@ c++ -std=gnu++17 -O1 -w \
   -DARDUINO=1 -DRP2040_PLATFORM=1 -DMESH_PACKET_LOGGING=0 -DMESH_DEBUG=0 -DMAX_CONTACTS=500 \
   -DMAX_GROUP_CHANNELS=20 -DMAX_NEIGHBOURS=100 -DOFFLINE_QUEUE_SIZE=64 -DLORA_FREQ=923.125 -DLORA_BW=62.5 \
   -DLORA_SF=8 -DLORA_CR=8 -DLORA_TX_POWER=20 -DMAX_LORA_TX_POWER=22 '-DFIRMWARE_VERSION="v1.14.0-android"' \
+  -DENABLE_PRIVATE_KEY_EXPORT=1 -DENABLE_PRIVATE_KEY_IMPORT=1 \
   host_node.cpp $C/android/AndroidSerialInterface.cpp \
   $C/meshcore/src/{Packet,Dispatcher,Mesh,Utils,Identity}.cpp \
   $C/meshcore/src/helpers/{StaticPoolPacketManager,BaseChatMesh,TxtDataHelpers,AdvertDataHelpers,IdentityStore,TransportKeyStore}.cpp \

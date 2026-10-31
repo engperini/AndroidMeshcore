@@ -62,6 +62,8 @@ target_compile_definitions(meshcore PRIVATE
   LORA_TX_POWER=20
   MAX_LORA_TX_POWER=22
   FIRMWARE_VERSION="v1.14.0-android"
+  ENABLE_PRIVATE_KEY_EXPORT=1
+  ENABLE_PRIVATE_KEY_IMPORT=1
 )
 
 target_compile_options(meshcore PRIVATE -Wno-unused-parameter -Wno-sign-compare -fexceptions)
