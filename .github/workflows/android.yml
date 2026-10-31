@@ -15,25 +15,58 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history so rev-list --count increases per commit
+
+      - name: Set monotonically increasing APK version
+        shell: bash
+        run: echo "MESHCORE_VERSION_CODE=$((1000 + $(git rev-list --count HEAD)))" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install NDK and CMake
-        run: sdkmanager "ndk;27.2.12479018" "cmake;3.22.1"
+      # GitHub-hosted Ubuntu runners include an Android SDK. As in MeshSDR, skip
+      # setup-android (it fails on current runners) and install packages directly.
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "${ANDROID_HOME:?Android SDK not available on runner}"
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdk" --licenses >/dev/null || true
+          "$sdk" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
 
       - name: Build host test node (same firmware sources as the app)
         run: tools/hosttest/build.sh
 
       - name: Tests and APK
-        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
+        shell: bash
+        run: |
+          set +e
+          ./gradlew --no-daemon --console=plain testDebugUnitTest assembleRelease > build.log 2>&1
+          code=$?
+          grep -n -E '(error:|FAILED|FAILURE:|What went wrong|CMake Error|ninja: error|e: file)' build.log | tail -60 || true
+          tail -60 build.log
+          exit "$code"
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk MeshCoreUSB.apk
+      - name: Show APK version and signing certificate
+        shell: bash
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$apk" | head -1
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -E 'SHA-256|DN'
+          cp "$apk" MeshCoreUSB.apk
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log-and-screenshots
+          path: |
+            build.log
+            app/build/screenshots/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:

@@ -13,8 +13,9 @@ android {
         applicationId = "com.engperini.meshcore"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        // CI passes a monotonically increasing code (1000 + commit count), as in MeshSDR.
+        versionCode = (System.getenv("MESHCORE_VERSION_CODE") ?: "2").toInt()
+        versionName = System.getenv("MESHCORE_VERSION_NAME") ?: "0.2.$versionCode"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
