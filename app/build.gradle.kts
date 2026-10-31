@@ -26,9 +26,10 @@ android {
         }
     }
 
-    // Stable signing key, kept out of git (app/meshcore-debug.jks locally, or
-    // MESHCORE_KEYSTORE_* in CI). With it every build has the same signature,
-    // so new APKs install over the previous one and keep the node identity.
+    // Public, test-only key committed to the repo on purpose (as in MeshSDR):
+    // every build, local or CI, gets the same signature, so new APKs install
+    // over the previous one and keep the node identity. MESHCORE_KEYSTORE_*
+    // can point a fork at its own key.
     val keystoreFile = System.getenv("MESHCORE_KEYSTORE_FILE")?.let { file(it) } ?: file("meshcore-debug.jks")
     val stableKey = keystoreFile.exists()
     signingConfigs {

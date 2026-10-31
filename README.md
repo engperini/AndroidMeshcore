@@ -155,9 +155,10 @@ Requirements: JDK 17, Android SDK (platform 35), NDK `27.2.12479018` and CMake `
 ./gradlew assembleRelease      # R8-minified APK
 ```
 
-Signing: if `app/meshcore-debug.jks` exists (or `MESHCORE_KEYSTORE_FILE`, `MESHCORE_KEYSTORE_PASSWORD`,
-`MESHCORE_KEY_ALIAS` and `MESHCORE_KEY_PASSWORD` are set), every APK gets the same signature. Without it, the
-machine's debug key is used. The key is kept out of git.
+Signing: every build, local or CI, is signed with the public test key committed in `app/meshcore-debug.jks`
+(as in MeshSDR), so new APKs install over the previous one and keep your identity. It is public on purpose: anyone
+can build and contribute. A fork can use its own key with `MESHCORE_KEYSTORE_FILE`, `MESHCORE_KEYSTORE_PASSWORD`,
+`MESHCORE_KEY_ALIAS` and `MESHCORE_KEY_PASSWORD`.
 
 ### Tests (real firmware, two nodes)
 
@@ -368,9 +369,10 @@ Requisitos: JDK 17, Android SDK (platform 35), NDK `27.2.12479018` e CMake `3.22
 ./gradlew assembleRelease      # APK com R8
 ```
 
-Assinatura: se existir `app/meshcore-debug.jks` (ou as variáveis `MESHCORE_KEYSTORE_FILE`,
-`MESHCORE_KEYSTORE_PASSWORD`, `MESHCORE_KEY_ALIAS` e `MESHCORE_KEY_PASSWORD`), os APKs saem sempre com a mesma
-assinatura. Sem ela, a chave de debug da máquina é usada. A chave fica fora do git.
+Assinatura: todo build, local ou no CI, é assinado com a chave pública de teste que está em
+`app/meshcore-debug.jks` (como no MeshSDR). Assim os APKs novos instalam por cima e mantêm a sua identidade. Ela é
+pública de propósito, para qualquer pessoa compilar e contribuir. Um fork pode usar a própria chave com
+`MESHCORE_KEYSTORE_FILE`, `MESHCORE_KEYSTORE_PASSWORD`, `MESHCORE_KEY_ALIAS` e `MESHCORE_KEY_PASSWORD`.
 
 ### Testes (firmware real, dois nós)
 
