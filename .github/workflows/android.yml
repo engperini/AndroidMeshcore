@@ -1,0 +1,47 @@
+name: Android APK
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install NDK and CMake
+        run: sdkmanager "ndk;27.2.12479018" "cmake;3.22.1"
+
+      - name: Build host test node (same firmware sources as the app)
+        run: tools/hosttest/build.sh
+
+      - name: Tests and APK
+        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/release/app-release.apk MeshCoreUSB.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MeshCoreUSB-apk
+          path: MeshCoreUSB.apk
+
+      - name: Attach APK to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: MeshCoreUSB.apk

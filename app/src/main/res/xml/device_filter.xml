@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- WCH CH341A in SPI/GPIO mode: USB MeshStick (CH341 + SX1262), PineDio USB -->
+    <usb-device vendor-id="6790" product-id="21778" />
+</resources>
