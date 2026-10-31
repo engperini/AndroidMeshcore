@@ -2,93 +2,96 @@ package com.engperini.meshcore.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.engperini.meshcore.core.LinkState
 import com.engperini.meshcore.core.MeshController
+import com.engperini.meshcore.core.MeshLink
 import com.engperini.meshcore.core.toHex
-import com.engperini.meshcore.data.ConvKey
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** A conversation the user can open: a group channel or a direct chat. */
+/** A conversation the user can open: a group channel or a direct chat (also rooms). */
 data class Conversation(val key: String, val title: String, val isChannel: Boolean, val channelIndex: Int = -1, val prefixHex: String = "")
 
-enum class Tab(val label: String) { CHATS("Conversas"), CONTACTS("Contatos"), CHANNELS("Canais"), SETTINGS("Config") }
-
-@Composable
-fun App(onConnect: () -> Unit) {
-    var tab by rememberSaveable { mutableStateOf(Tab.CHATS) }
-    var openConv by remember { mutableStateOf<Conversation?>(null) }
-
-    val conv = openConv
-    if (conv != null) {
-        BackHandler { openConv = null }
-        ChatScreen(conv, onBack = { openConv = null })
-    } else {
-        HomeScreen(tab, onTab = { tab = it }, onOpen = { openConv = it }, onConnect = onConnect)
-    }
+enum class Tab(val label: String, val icon: ImageVector) {
+    CHATS("Conversas", Icons.Default.Email),
+    CONTACTS("Contatos", Icons.Default.Person),
+    MAP("Mapa", Icons.Default.LocationOn),
+    NETWORK("Rede", Icons.Default.Info),
+    SETTINGS("Config", Icons.Default.Settings),
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Screens above the tabs. */
+sealed class Route {
+    data class Chat(val conv: Conversation) : Route()
+    data class ContactDetail(val keyHex: String) : Route()
+    data class Admin(val keyHex: String) : Route()
+}
+
+class Nav {
+    val stack = mutableStateListOf<Route>()
+    fun push(r: Route) = stack.add(r)
+    fun pop() = stack.removeLastOrNull()
+    fun openChat(c: Conversation) = push(Route.Chat(c))
+}
+
 @Composable
-fun HomeScreen(tab: Tab, onTab: (Tab) -> Unit, onOpen: (Conversation) -> Unit, onConnect: () -> Unit) {
-    val link by MeshController.link.collectAsState()
-    val self by MeshController.self.collectAsState()
+fun App(onConnect: () -> Unit, incomingLink: MeshLink?, onLinkHandled: () -> Unit) {
+    var tab by rememberSaveable { mutableStateOf(Tab.CHATS) }
+    val nav = remember { Nav() }
     val event by MeshController.events.collectAsState()
     val snackbar = remember { SnackbarHostState() }
-    var menu by remember { mutableStateOf(false) }
 
     LaunchedEffect(event) {
         event?.let {
@@ -98,190 +101,180 @@ fun HomeScreen(tab: Tab, onTab: (Tab) -> Unit, onOpen: (Conversation) -> Unit, o
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(self?.name?.ifBlank { null } ?: "MeshCore USB", maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        StatusLine(link.state, link.message)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Menu") }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Enviar advert (flood)") },
-                            enabled = link.state == LinkState.RUNNING,
-                            onClick = { menu = false; MeshController.sendAdvert(true) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Enviar advert (zero-hop)") },
-                            enabled = link.state == LinkState.RUNNING,
-                            onClick = { menu = false; MeshController.sendAdvert(false) },
-                        )
-                        DropdownMenuItem(text = { Text("Reconectar rádio") }, onClick = { menu = false; onConnect() })
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                Tab.entries.forEach { t ->
-                    NavigationBarItem(
-                        selected = t == tab,
-                        onClick = { onTab(t) },
-                        icon = {
-                            Icon(
-                                when (t) {
-                                    Tab.CHATS -> Icons.Default.Email
-                                    Tab.CONTACTS -> Icons.Default.Person
-                                    Tab.CHANNELS -> Icons.Default.Home
-                                    Tab.SETTINGS -> Icons.Default.Settings
-                                },
-                                t.label,
-                            )
-                        },
-                        label = { Text(t.label) },
-                    )
-                }
-            }
-        },
+        containerColor = Color.Transparent,
+        contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            if (link.state != LinkState.RUNNING && tab != Tab.SETTINGS) {
+    ) { pad ->
+        Box(Modifier.fillMaxSize().padding(pad)) {
+            when (val top = nav.stack.lastOrNull()) {
+                null -> Home(tab, { tab = it }, nav, onConnect)
+                is Route.Chat -> ChatScreen(top.conv, nav)
+                is Route.ContactDetail -> ContactScreen(top.keyHex, nav)
+                is Route.Admin -> AdminScreen(top.keyHex, nav)
+            }
+            if (nav.stack.isNotEmpty()) BackHandler { nav.pop() }
+        }
+    }
+
+    if (incomingLink != null) LinkDialog(incomingLink, onLinkHandled)
+}
+
+@Composable
+internal fun Home(tab: Tab, onTab: (Tab) -> Unit, nav: Nav, onConnect: () -> Unit) {
+    val link by MeshController.link.collectAsState()
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Header(onConnect)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            val needsRadio = tab != Tab.SETTINGS && tab != Tab.MAP
+            if (link.state != LinkState.RUNNING && needsRadio) {
                 ConnectPanel(link.state, link.message, onConnect)
             } else {
                 when (tab) {
-                    Tab.CHATS -> ConversationsList(onOpen)
-                    Tab.CONTACTS -> ContactsScreen(onOpen)
-                    Tab.CHANNELS -> ChannelsScreen(onOpen)
-                    Tab.SETTINGS -> SettingsScreen()
+                    Tab.CHATS -> ChatsScreen(nav)
+                    Tab.CONTACTS -> ContactsScreen(nav)
+                    Tab.MAP -> MapScreen(nav)
+                    Tab.NETWORK -> NetworkScreen()
+                    Tab.SETTINGS -> SettingsScreen(onConnect)
                 }
+            }
+        }
+        BottomBar(tab, onTab)
+    }
+}
+
+/** MeshSDR-style header: logo, name, summary and a status chip. */
+@Composable
+fun Header(onConnect: () -> Unit) {
+    val link by MeshController.link.collectAsState()
+    val self by MeshController.self.collectAsState()
+    val device by MeshController.device.collectAsState()
+    var menu by remember { mutableStateOf(false) }
+
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Logo(46)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("MeshCore USB", color = Mesh.TEXT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            val summary = self?.let { s ->
+                val bytes = device?.let { " • ${it.pathHashMode + 1} byte${if (it.pathHashMode > 0) "s" else ""}" } ?: ""
+                "${s.name} • ${"%.3f".format(Locale.US, s.freqKhz / 1000.0)} MHz$bytes"
+            } ?: "MeshCore no celular via USB MeshStick"
+            Muted(summary, size = 12, maxLines = 1)
+        }
+        val (label, color) = when (link.state) {
+            LinkState.RUNNING -> "Ativo" to Mesh.GREEN
+            LinkState.STARTING -> "Iniciando" to Mesh.AMBER
+            LinkState.ERROR -> "Erro" to Mesh.RED
+            LinkState.NO_DEVICE -> "Sem rádio" to Mesh.MUTED
+        }
+        Box(Modifier.clickable { if (link.state != LinkState.RUNNING) onConnect() }) { StatusChip(label, color) }
+        Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "Menu", tint = Mesh.MUTED) }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(
+                    text = { Text("Enviar advert (flood)") }, enabled = link.state == LinkState.RUNNING,
+                    onClick = { menu = false; MeshController.sendAdvert(true) },
+                )
+                DropdownMenuItem(
+                    text = { Text("Enviar advert (zero-hop)") }, enabled = link.state == LinkState.RUNNING,
+                    onClick = { menu = false; MeshController.sendAdvert(false) },
+                )
+                DropdownMenuItem(text = { Text("Reconectar rádio") }, onClick = { menu = false; onConnect() })
             }
         }
     }
 }
 
 @Composable
-fun StatusLine(state: LinkState, message: String) {
-    val color = when (state) {
-        LinkState.RUNNING -> Color(0xFF2EB67D)
-        LinkState.STARTING -> Color(0xFFE0A000)
-        LinkState.ERROR -> Color(0xFFD9534F)
-        LinkState.NO_DEVICE -> Color.Gray
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).background(color, CircleShape))
-        Spacer(Modifier.width(6.dp))
-        Text(message, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .navigationBarsPadding()
+            .clip(RoundedCornerShape(22.dp))
+            .background(Mesh.SURFACE)
+            .border(1.dp, Mesh.OUTLINE, RoundedCornerShape(22.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        Tab.entries.forEach { t ->
+            val sel = t == tab
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (sel) Mesh.ACCENT.copy(alpha = 0.16f) else Color.Transparent)
+                    .clickable { onTab(t) }
+                    .padding(vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(t.icon, t.label, tint = if (sel) Mesh.ACCENT else Mesh.MUTED, modifier = Modifier.size(22.dp))
+                Text(t.label, color = if (sel) Mesh.ACCENT else Mesh.MUTED, fontSize = 11.sp, maxLines = 1)
+            }
+        }
     }
 }
 
 @Composable
 fun ConnectPanel(state: LinkState, message: String, onConnect: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            if (state == LinkState.STARTING) "Iniciando o rádio…" else "Rádio desconectado",
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Spacer(Modifier.padding(6.dp))
-        Text(message, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.padding(6.dp))
-        Text(
-            "1. Coloque a antena no MeshStick.\n2. Conecte-o ao celular com um cabo/adaptador USB OTG.\n" +
-                "3. Aceite abrir o MeshCore USB e permitir o acesso ao dispositivo.",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Spacer(Modifier.padding(12.dp))
-        if (state != LinkState.STARTING) Button(onClick = onConnect) { Text("Conectar") }
-    }
-}
-
-@Composable
-fun ConversationsList(onOpen: (Conversation) -> Unit) {
-    val channels by MeshController.channels.collectAsState()
-    val contacts by MeshController.contacts.collectAsState()
-    val version by MeshController.messagesVersion.collectAsState()
-    val summaries = remember(version) { MeshController.messages.summaries() }
-
-    val convs = buildList {
-        channels.filterNot { it.isEmpty }.forEach {
-            add(Conversation(ConvKey.channel(it.secretHex), it.name, true, channelIndex = it.index))
-        }
-        // Direct chats with history, plus their contact names when known.
-        summaries.keys.filter { it.startsWith("c:") }.forEach { key ->
-            val prefix = key.removePrefix("c:")
-            val name = contacts.firstOrNull { it.keyHex.startsWith(prefix) }?.name ?: prefix
-            add(Conversation(key, name, false, prefixHex = prefix))
-        }
-    }.sortedByDescending { summaries[it.key]?.lastTime ?: 0L }
-
-    if (convs.isEmpty()) {
-        Empty("Nenhuma conversa ainda.\nAbra um canal ou um contato para começar.")
-        return
-    }
-    LazyColumn(Modifier.fillMaxSize()) {
-        items(convs, key = { it.key }) { c ->
-            val s = summaries[c.key]
-            ConversationRow(
-                title = (if (c.isChannel) "# " else "") + c.title,
-                subtitle = s?.let { if (c.isChannel) "${it.lastSender}: ${it.lastText}" else it.lastText } ?: "Sem mensagens",
-                time = s?.lastTime,
-                unread = s?.unread ?: 0,
-                onClick = { onOpen(c) },
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center) {
+        MeshCard {
+            CardTitle(if (state == LinkState.STARTING) "Iniciando o rádio…" else "Rádio desconectado")
+            Muted(message)
+            Spacer(Modifier.height(4.dp))
+            Muted(
+                "1. Coloque a antena no MeshStick.\n" +
+                    "2. Conecte-o ao celular com um cabo ou adaptador USB OTG.\n" +
+                    "3. Aceite abrir o MeshCore USB e permitir o acesso ao dispositivo.",
             )
-            HorizontalDivider()
+            if (state != LinkState.STARTING) Pill("Conectar", Modifier.fillMaxWidth(), PillStyle.PRIMARY, onClick = onConnect)
         }
     }
 }
 
+/** Confirms a meshcore:// link (QR code, camera, another app) before adding it. */
 @Composable
-fun ConversationRow(title: String, subtitle: String, time: Long?, unread: Int, onClick: () -> Unit) {
+fun LinkDialog(link: MeshLink, onDone: () -> Unit) {
+    val (title, body) = when (link) {
+        is MeshLink.AddContact -> "Adicionar contato?" to "${link.name}\nChave ${link.pubKey.copyOf(8).toHex()}…"
+        is MeshLink.AddChannel -> "Adicionar canal?" to "${link.name}\nChave ${link.secret.toHex()}"
+    }
+    AlertDialog(
+        onDismissRequest = onDone,
+        containerColor = Mesh.SURFACE_2,
+        title = { Text(title) },
+        text = { Text(body) },
+        confirmButton = { Pill("Adicionar", style = PillStyle.PRIMARY) { MeshController.importLink(link); onDone() } },
+        dismissButton = { Pill("Cancelar", style = PillStyle.TEXT, onClick = onDone) },
+    )
+}
+
+/** Standard list row: avatar, title, subtitle, trailing column. */
+@Composable
+fun ListRow(
+    title: String,
+    subtitle: String,
+    avatar: @Composable () -> Unit,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    trailing: @Composable () -> Unit = {},
+) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickableCompat(onClick, onLongClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(title.removePrefix("# "))
+        avatar()
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text(title, color = Mesh.TEXT, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Muted(subtitle, size = 13, maxLines = 1)
         }
-        Column(horizontalAlignment = Alignment.End) {
-            if (time != null) Text(formatTime(time), style = MaterialTheme.typography.labelSmall)
-            if (unread > 0) Badge { Text("$unread") }
-        }
-    }
-}
-
-@Composable
-fun Avatar(name: String) {
-    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(40.dp)) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(name.trim().take(1).uppercase().ifBlank { "?" }, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-fun Empty(text: String) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-fun Pill(text: String) {
-    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-        Text(text, Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall)
+        trailing()
     }
 }
 
@@ -302,4 +295,16 @@ fun ago(epochSec: Long): String {
     }
 }
 
+fun uptime(secs: Long): String = when {
+    secs < 3600 -> "${secs / 60} min"
+    secs < 86400 -> "${secs / 3600} h ${(secs % 3600) / 60} min"
+    else -> "${secs / 86400} d ${(secs % 86400) / 3600} h"
+}
+
 fun ByteArray.prefixHex(): String = copyOf(6).toHex()
+
+fun hopsLabel(pathLen: Int): String = when (val h = com.engperini.meshcore.core.Protocol.hops(pathLen)) {
+    null -> "flood"
+    0 -> "direto"
+    else -> "$h salto(s)"
+}

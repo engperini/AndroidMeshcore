@@ -23,11 +23,22 @@ object Protocol {
     const val CMD_SET_ADVERT_LATLON = 14
     const val CMD_REMOVE_CONTACT = 15
     const val CMD_SHARE_CONTACT = 16
+    const val CMD_EXPORT_CONTACT = 17
+    const val CMD_IMPORT_CONTACT = 18
     const val CMD_GET_BATT_AND_STORAGE = 20
     const val CMD_DEVICE_QUERY = 22
+    const val CMD_EXPORT_PRIVATE_KEY = 23
+    const val CMD_IMPORT_PRIVATE_KEY = 24
+    const val CMD_SEND_LOGIN = 26
+    const val CMD_SEND_STATUS_REQ = 27
+    const val CMD_LOGOUT = 29
     const val CMD_GET_CHANNEL = 31
     const val CMD_SET_CHANNEL = 32
     const val CMD_SET_OTHER_PARAMS = 38
+    const val CMD_SEND_PATH_DISCOVERY_REQ = 52
+    const val CMD_GET_STATS = 56
+    const val CMD_SET_AUTOADD_CONFIG = 58
+    const val CMD_GET_AUTOADD_CONFIG = 59
     const val CMD_SET_PATH_HASH_MODE = 61
 
     const val RESP_OK = 0
@@ -44,24 +55,44 @@ object Protocol {
     const val RESP_DEVICE_INFO = 13
     const val RESP_CONTACT_MSG_RECV_V3 = 16
     const val RESP_CHANNEL_MSG_RECV_V3 = 17
+    const val RESP_PRIVATE_KEY = 14
+    const val RESP_DISABLED = 15
     const val RESP_CHANNEL_INFO = 18
+    const val RESP_STATS = 24
+    const val RESP_AUTOADD_CONFIG = 25
 
     const val PUSH_ADVERT = 0x80
     const val PUSH_PATH_UPDATED = 0x81
     const val PUSH_SEND_CONFIRMED = 0x82
     const val PUSH_MSG_WAITING = 0x83
+    const val PUSH_LOGIN_SUCCESS = 0x85
+    const val PUSH_LOGIN_FAIL = 0x86
+    const val PUSH_STATUS_RESPONSE = 0x87
     const val PUSH_LOG_RX_DATA = 0x88
     const val PUSH_NEW_ADVERT = 0x8A
+    const val PUSH_PATH_DISCOVERY_RESPONSE = 0x8D
     const val PUSH_CONTACT_DELETED = 0x8F
     const val PUSH_CONTACTS_FULL = 0x90
 
     const val TXT_TYPE_PLAIN = 0
+    const val TXT_TYPE_CLI_DATA = 1
     const val TXT_TYPE_SIGNED_PLAIN = 2
 
     const val ADV_TYPE_CHAT = 1
     const val ADV_TYPE_REPEATER = 2
     const val ADV_TYPE_ROOM = 3
     const val ADV_TYPE_SENSOR = 4
+
+    const val STATS_CORE = 0
+    const val STATS_RADIO = 1
+    const val STATS_PACKETS = 2
+
+    // CMD_SET_AUTOADD_CONFIG bits (used when "add manually" is on).
+    const val AUTOADD_OVERWRITE_OLDEST = 0x01
+    const val AUTOADD_CHAT = 0x02
+    const val AUTOADD_REPEATER = 0x04
+    const val AUTOADD_ROOM = 0x08
+    const val AUTOADD_SENSOR = 0x10
 
     const val PUB_KEY_SIZE = 32
     const val MAX_PATH_SIZE = 64
@@ -96,10 +127,10 @@ object Protocol {
         return byteArrayOf(CMD_SET_ADVERT_NAME.toByte()) + n
     }
 
-    fun sendText(pubKey: ByteArray, text: String, timestamp: Long, attempt: Int = 0): ByteArray {
+    fun sendText(pubKey: ByteArray, text: String, timestamp: Long, attempt: Int = 0, txtType: Int = TXT_TYPE_PLAIN): ByteArray {
         val t = text.toByteArray()
         return buf(13 + t.size)
-            .put(CMD_SEND_TXT_MSG.toByte()).put(TXT_TYPE_PLAIN.toByte()).put(attempt.toByte())
+            .put(CMD_SEND_TXT_MSG.toByte()).put(txtType.toByte()).put(attempt.toByte())
             .putInt(timestamp.toInt()).put(pubKey, 0, 6).put(t).bytes()
     }
 
@@ -135,6 +166,44 @@ object Protocol {
     /** Adds a contact the node only reported (PUSH_NEW_ADVERT, manual-add mode); same layout as the contact frame. */
     fun addContact(contactFrame: ByteArray): ByteArray =
         byteArrayOf(CMD_ADD_UPDATE_CONTACT.toByte()) + contactFrame.copyOfRange(1, minOf(contactFrame.size, 144))
+
+    /** Adds a contact known only by key, name and type (e.g. from a meshcore://contact/add QR code). */
+    fun addContactByKey(pubKey: ByteArray, name: String, type: Int): ByteArray {
+        val n = ByteArray(32)
+        name.toByteArray().let { it.copyInto(n, 0, 0, minOf(31, it.size)) }
+        return buf(1 + 32 + 3 + MAX_PATH_SIZE + 32 + 12)
+            .put(CMD_ADD_UPDATE_CONTACT.toByte()).put(pubKey, 0, 32).put(type.toByte()).put(0)
+            .put(OUT_PATH_UNKNOWN.toByte()).put(ByteArray(MAX_PATH_SIZE)).put(n)
+            .putInt(0).putInt(0).putInt(0).bytes()
+    }
+
+    /** Re-sends a contact frame with a new outbound path (path bytes and the encoded path length). */
+    fun setContactPath(contactFrame: ByteArray, pathLen: Int, path: ByteArray): ByteArray {
+        val f = addContact(contactFrame)
+        f[35] = pathLen.toByte()
+        java.util.Arrays.fill(f, 36, 36 + MAX_PATH_SIZE, 0)
+        path.copyInto(f, 36, 0, minOf(path.size, MAX_PATH_SIZE))
+        return f
+    }
+
+    fun login(pubKey: ByteArray, password: String) = byteArrayOf(CMD_SEND_LOGIN.toByte()) + pubKey + password.toByteArray()
+
+    fun logout(pubKey: ByteArray) = byteArrayOf(CMD_LOGOUT.toByte()) + pubKey
+
+    fun statusRequest(pubKey: ByteArray) = byteArrayOf(CMD_SEND_STATUS_REQ.toByte()) + pubKey
+
+    fun pathDiscovery(pubKey: ByteArray) = byteArrayOf(CMD_SEND_PATH_DISCOVERY_REQ.toByte(), 0) + pubKey
+
+    fun getStats(type: Int) = byteArrayOf(CMD_GET_STATS.toByte(), type.toByte())
+
+    fun exportPrivateKey() = byteArrayOf(CMD_EXPORT_PRIVATE_KEY.toByte())
+
+    fun importPrivateKey(key: ByteArray) = byteArrayOf(CMD_IMPORT_PRIVATE_KEY.toByte()) + key
+
+    fun getAutoAddConfig() = byteArrayOf(CMD_GET_AUTOADD_CONFIG.toByte())
+
+    fun setAutoAddConfig(config: Int, maxHops: Int) =
+        byteArrayOf(CMD_SET_AUTOADD_CONFIG.toByte(), config.toByte(), maxHops.toByte())
 
     fun removeContact(pubKey: ByteArray) = byteArrayOf(CMD_REMOVE_CONTACT.toByte()) + pubKey
 
@@ -225,7 +294,7 @@ object Protocol {
             val pathLen = f[i + 1].toInt() and 0xFF
             val ts = le(f, 0).getInt(i + 3).toLong() and 0xFFFFFFFFL
             val text = String(f, i + 7, f.size - i - 7, Charsets.UTF_8)
-            Incoming(channelIdx = idx, senderPrefix = null, pathLen = pathLen, timestamp = ts, text = text, snr = snr)
+            Incoming(channelIdx = idx, senderPrefix = null, pathLen = pathLen, timestamp = ts, text = text, snr = snr, txtType = TXT_TYPE_PLAIN)
         } else {
             if (f.size < i + 12) return null
             val prefix = f.copyOfRange(i, i + 6)
@@ -233,10 +302,15 @@ object Protocol {
             val txtType = f[i + 7].toInt()
             val ts = le(f, 0).getInt(i + 8).toLong() and 0xFFFFFFFFL
             var t = i + 12
+            // Room servers relay posts as signed messages: the 4-byte prefix is the original author.
+            val author = if (txtType == TXT_TYPE_SIGNED_PLAIN && f.size >= t + 4) f.copyOfRange(t, t + 4) else null
             if (txtType == TXT_TYPE_SIGNED_PLAIN) t += 4
-            if (txtType != TXT_TYPE_PLAIN && txtType != TXT_TYPE_SIGNED_PLAIN) return null
+            if (txtType != TXT_TYPE_PLAIN && txtType != TXT_TYPE_SIGNED_PLAIN && txtType != TXT_TYPE_CLI_DATA) return null
             val text = String(f, t, maxOf(0, f.size - t), Charsets.UTF_8)
-            Incoming(channelIdx = null, senderPrefix = prefix, pathLen = pathLen, timestamp = ts, text = text, snr = snr)
+            Incoming(
+                channelIdx = null, senderPrefix = prefix, pathLen = pathLen, timestamp = ts, text = text, snr = snr,
+                txtType = txtType, authorPrefix = author,
+            )
         }
     }
 
@@ -247,6 +321,109 @@ object Protocol {
         MessageDigest.getInstance("SHA-256").digest(name.toByteArray()).copyOf(16)
 
     fun hops(pathLen: Int): Int? = if (pathLen == OUT_PATH_UNKNOWN) null else pathLen and 63
+
+    /** Bytes per hop hash encoded in the top bits of a path length. */
+    fun hashSize(pathLen: Int): Int = (pathLen shr 6) + 1
+
+    /** Path bytes of a contact frame / path field, as hex hop hashes ("a1 > 3f"). */
+    fun pathHops(pathLen: Int, path: ByteArray): List<String> {
+        val n = hops(pathLen) ?: return emptyList()
+        val sz = hashSize(pathLen)
+        return (0 until n).mapNotNull { h ->
+            if ((h + 1) * sz <= path.size) path.copyOfRange(h * sz, (h + 1) * sz).toHex() else null
+        }
+    }
+
+    fun parseLoginResult(f: ByteArray): LoginResult? {
+        if (f.size < 8) return null
+        val ok = (f[0].toInt() and 0xFF) == PUSH_LOGIN_SUCCESS
+        return LoginResult(prefix = f.copyOfRange(2, 8), success = ok, isAdmin = ok && (f[1].toInt() and 1) != 0)
+    }
+
+    /** PUSH_STATUS_RESPONSE from a repeater (RepeaterStats in simple_repeater/MyMesh.h). */
+    fun parseRepeaterStatus(f: ByteArray): RepeaterStatus? {
+        if (f.size < 8 + 44) return null
+        val b = le(f, 0)
+        val o = 8
+        fun u32(at: Int) = b.getInt(o + at).toLong() and 0xFFFFFFFFL
+        return RepeaterStatus(
+            prefix = f.copyOfRange(2, 8),
+            battMv = b.getShort(o).toInt() and 0xFFFF,
+            txQueue = b.getShort(o + 2).toInt() and 0xFFFF,
+            noiseFloor = b.getShort(o + 4).toInt(),
+            lastRssi = b.getShort(o + 6).toInt(),
+            packetsRecv = u32(8),
+            packetsSent = u32(12),
+            airTimeSecs = u32(16),
+            uptimeSecs = u32(20),
+            sentFlood = u32(24),
+            sentDirect = u32(28),
+            recvFlood = u32(32),
+            recvDirect = u32(36),
+            lastSnr = b.getShort(o + 42) / 4.0f,
+        )
+    }
+
+    /** PUSH_PATH_DISCOVERY_RESPONSE: the path to the contact and the path back. */
+    fun parsePathDiscovery(f: ByteArray): PathDiscovery? {
+        if (f.size < 9) return null
+        val outLen = f[8].toInt() and 0xFF
+        val outBytes = (hops(outLen) ?: 0) * hashSize(outLen)
+        if (f.size < 9 + outBytes + 1) return null
+        val outPath = f.copyOfRange(9, 9 + outBytes)
+        val inLen = f[9 + outBytes].toInt() and 0xFF
+        val inBytes = (hops(inLen) ?: 0) * hashSize(inLen)
+        val inPath = f.copyOfRange(10 + outBytes, minOf(f.size, 10 + outBytes + inBytes))
+        return PathDiscovery(f.copyOfRange(2, 8), outLen, outPath, inLen, inPath)
+    }
+
+    /** RESP_STATS of the local node (core, radio or packets). */
+    fun parseStats(f: ByteArray, into: NodeStats): NodeStats {
+        if (f.size < 2) return into
+        val b = le(f, 0)
+        fun u32(at: Int) = b.getInt(at).toLong() and 0xFFFFFFFFL
+        return when (f[1].toInt()) {
+            STATS_CORE -> if (f.size >= 11) into.copy(uptimeSecs = u32(4), queueLen = f[10].toInt() and 0xFF) else into
+            STATS_RADIO -> if (f.size >= 14) {
+                into.copy(noiseFloor = b.getShort(2).toInt(), lastRssi = f[4].toInt(), lastSnr = f[5] / 4.0f,
+                    txAirSecs = u32(6), rxAirSecs = u32(10))
+            } else into
+            STATS_PACKETS -> if (f.size >= 30) {
+                into.copy(recv = u32(2), sent = u32(6), sentFlood = u32(10), sentDirect = u32(14),
+                    recvFlood = u32(18), recvDirect = u32(22), recvErrors = u32(26))
+            } else into
+            else -> into
+        }
+    }
+
+    // ---- meshcore:// links (docs/qr_codes.md of MeshCore) ----
+
+    fun contactUri(name: String, pubKey: ByteArray, type: Int): String =
+        "meshcore://contact/add?name=${java.net.URLEncoder.encode(name, "UTF-8")}&public_key=${pubKey.toHex()}&type=$type"
+
+    fun channelUri(name: String, secret: ByteArray): String =
+        "meshcore://channel/add?name=${java.net.URLEncoder.encode(name, "UTF-8")}&secret=${secret.toHex()}"
+
+    fun parseUri(text: String): MeshLink? {
+        val t = text.trim()
+        if (!t.startsWith("meshcore://")) return null
+        val rest = t.removePrefix("meshcore://")
+        val path = rest.substringBefore('?')
+        val params = rest.substringAfter('?', "").split('&').filter { '=' in it }.associate {
+            it.substringBefore('=') to java.net.URLDecoder.decode(it.substringAfter('='), "UTF-8")
+        }
+        return when (path) {
+            "contact/add" -> {
+                val key = params["public_key"]?.hexToBytes()?.takeIf { it.size == 32 } ?: return null
+                MeshLink.AddContact(params["name"] ?: key.copyOf(4).toHex(), key, params["type"]?.toIntOrNull() ?: ADV_TYPE_CHAT)
+            }
+            "channel/add" -> {
+                val secret = params["secret"]?.hexToBytes()?.takeIf { it.size == 16 } ?: return null
+                MeshLink.AddChannel(params["name"] ?: "Canal", secret)
+            }
+            else -> null
+        }
+    }
 }
 
 fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
@@ -321,4 +498,49 @@ data class Incoming(
     val timestamp: Long,
     val text: String,
     val snr: Float?,
+    val txtType: Int = Protocol.TXT_TYPE_PLAIN,
+    val authorPrefix: ByteArray? = null,
 )
+
+data class LoginResult(val prefix: ByteArray, val success: Boolean, val isAdmin: Boolean)
+
+data class RepeaterStatus(
+    val prefix: ByteArray,
+    val battMv: Int,
+    val txQueue: Int,
+    val noiseFloor: Int,
+    val lastRssi: Int,
+    val packetsRecv: Long,
+    val packetsSent: Long,
+    val airTimeSecs: Long,
+    val uptimeSecs: Long,
+    val sentFlood: Long,
+    val sentDirect: Long,
+    val recvFlood: Long,
+    val recvDirect: Long,
+    val lastSnr: Float,
+)
+
+data class PathDiscovery(val prefix: ByteArray, val outLen: Int, val outPath: ByteArray, val inLen: Int, val inPath: ByteArray)
+
+data class NodeStats(
+    val uptimeSecs: Long = 0,
+    val queueLen: Int = 0,
+    val noiseFloor: Int = 0,
+    val lastRssi: Int = 0,
+    val lastSnr: Float = 0f,
+    val txAirSecs: Long = 0,
+    val rxAirSecs: Long = 0,
+    val recv: Long = 0,
+    val sent: Long = 0,
+    val sentFlood: Long = 0,
+    val sentDirect: Long = 0,
+    val recvFlood: Long = 0,
+    val recvDirect: Long = 0,
+    val recvErrors: Long = 0,
+)
+
+sealed class MeshLink {
+    data class AddContact(val name: String, val pubKey: ByteArray, val type: Int) : MeshLink()
+    data class AddChannel(val name: String, val secret: ByteArray) : MeshLink()
+}

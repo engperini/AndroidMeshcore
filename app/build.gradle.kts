@@ -67,11 +67,15 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
+        unitTests.isIncludeAndroidResources = true
         unitTests.all {
             // Two-node end-to-end test against the real firmware (tools/hosttest).
             it.systemProperty("hostNode", rootProject.file("tools/hosttest/build/host_node").absolutePath)
+            // Optional Maven mirror for Robolectric's Android jars (screenshot tests).
+            System.getenv("ROBOLECTRIC_REPO_URL")?.let { url -> it.systemProperty("robolectric.dependency.repo.url", url) }
         }
     }
 }
@@ -90,6 +94,13 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-service:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    // Map (OpenStreetMap, no API key) and QR codes (meshcore:// links).
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

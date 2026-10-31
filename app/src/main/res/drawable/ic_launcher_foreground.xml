@@ -1,7 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MeshCore USB mark: three mesh nodes, the top one radiating, over a USB plug. Same family as MeshSDR. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <group android:translateX="30" android:translateY="30" android:scaleX="2" android:scaleY="2">
-        <path android:fillColor="#FFFFFFFF"
-            android:pathData="M6,4a2.5,2.5 0,1 1,0 5a2.5,2.5 0,1 1,0 -5zM18,4a2.5,2.5 0,1 1,0 5a2.5,2.5 0,1 1,0 -5zM12,15a2.5,2.5 0,1 1,0 5a2.5,2.5 0,1 1,0 -5zM7.2,8.3l4.2,7.2l-1.3,0.8l-4.2,-7.2zM16.8,8.3l1.3,0.8l-4.2,7.2l-1.3,-0.8zM8.5,5.8h7v1.4h-7z" />
-    </group>
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,46 L37,70 L71,70 Z"
+        android:strokeColor="#22D3EE"
+        android:strokeAlpha="0.9"
+        android:strokeWidth="3"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M46.2,38.2 A11,11 0 0 1 61.8,38.2"
+        android:strokeColor="#67E8F9"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M41.3,33.3 A18,18 0 0 1 66.7,33.3"
+        android:strokeColor="#67E8F9"
+        android:strokeAlpha="0.6"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M47,46 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 Z"
+        android:fillColor="#FFFFFF" />
+    <path
+        android:pathData="M50.5,46 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 Z"
+        android:fillColor="#22D3EE" />
+    <path
+        android:pathData="M31.5,70 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0 Z"
+        android:fillColor="#22D3EE" />
+    <path
+        android:pathData="M65.5,70 a5.5,5.5 0 1,0 11,0 a5.5,5.5 0 1,0 -11,0 Z"
+        android:fillColor="#22D3EE" />
+    <!-- USB plug -->
+    <path
+        android:pathData="M54,74 L54,79"
+        android:strokeColor="#34D399"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M47.5,79 h13 v5 a2,2 0 0 1 -2,2 h-9 a2,2 0 0 1 -2,-2 Z"
+        android:fillColor="#34D399" />
 </vector>

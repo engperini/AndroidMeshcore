@@ -1,9 +1,12 @@
 package com.engperini.meshcore.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,17 +25,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -42,8 +42,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.engperini.meshcore.core.LinkState
 import com.engperini.meshcore.core.MeshController
 import com.engperini.meshcore.core.Protocol
@@ -53,12 +55,12 @@ import com.engperini.meshcore.data.MsgStatus
 // Text budget of one MeshCore message (the group sender name prefix shares it).
 private const val MAX_TEXT_BYTES = 150
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(conv: Conversation, onBack: () -> Unit) {
+fun ChatScreen(conv: Conversation, nav: Nav) {
     val version by MeshController.messagesVersion.collectAsState()
     val channels by MeshController.channels.collectAsState()
     val contacts by MeshController.contacts.collectAsState()
+    val logins by MeshController.logins.collectAsState()
     val link by MeshController.link.collectAsState()
     val messages = remember(version, conv.key) { MeshController.messages.messages(conv.key) }
     var input by rememberSaveable { mutableStateOf("") }
@@ -67,6 +69,8 @@ fun ChatScreen(conv: Conversation, onBack: () -> Unit) {
 
     val channel = channels.firstOrNull { conv.isChannel && it.index == conv.channelIndex }
     val contact = contacts.firstOrNull { !conv.isChannel && it.keyHex.startsWith(conv.prefixHex) }
+    val isRoom = contact?.type == Protocol.ADV_TYPE_ROOM
+    val loggedIn = logins[conv.prefixHex]?.success == true
 
     DisposableEffect(conv.key) {
         MeshController.activeConversation = conv.key
@@ -77,111 +81,130 @@ fun ChatScreen(conv: Conversation, onBack: () -> Unit) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } },
-                title = {
-                    Column {
-                        Text((if (conv.isChannel) "# " else "") + (channel?.name ?: contact?.name ?: conv.title))
-                        val sub = when {
-                            conv.isChannel -> "Canal em grupo"
-                            contact == null -> "Contato desconhecido"
-                            else -> Protocol.hops(contact.outPathLen)?.let { "Rota direta: $it salto(s)" } ?: "Rota: flood"
-                        }
-                        Text(sub, style = MaterialTheme.typography.labelSmall)
-                    }
-                },
-                actions = { IconButton(onClick = { confirmClear = true }) { Icon(Icons.Default.Delete, "Limpar") } },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().imePadding()) {
-            LazyColumn(
-                Modifier.weight(1f).fillMaxWidth(),
-                state = listState,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(messages, key = { it.id }) { m ->
-                    Bubble(m, showSender = conv.isChannel) {
-                        if (!conv.isChannel && m.outgoing && m.status == MsgStatus.FAILED) {
-                            MeshController.retryDirect(m.id, conv.prefixHex, m.text, m.timestamp)
-                        }
+    Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
+        // Top bar
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = Mesh.TEXT) }
+            MeshAvatar(channel?.name ?: contact?.name ?: conv.title, if (conv.isChannel) Mesh.ACCENT else typeColor(contact?.type ?: 1), 38)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    (if (conv.isChannel) "# " else "") + (channel?.name?.removePrefix("#") ?: contact?.name ?: conv.title),
+                    color = Mesh.TEXT, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                )
+                val sub = when {
+                    conv.isChannel -> "Canal em grupo"
+                    contact == null -> "Contato desconhecido"
+                    isRoom -> if (loggedIn) "Sala • conectado" else "Sala • faça login para ver as mensagens"
+                    else -> Protocol.hops(contact.outPathLen)?.let { "Rota direta: $it salto(s)" } ?: "Rota: flood"
+                }
+                Muted(sub, size = 12, maxLines = 1)
+            }
+            if (contact != null) {
+                IconButton(onClick = { nav.push(Route.ContactDetail(contact.keyHex)) }) { Icon(Icons.Default.Info, "Detalhes", tint = Mesh.MUTED) }
+            }
+            IconButton(onClick = { confirmClear = true }) { Icon(Icons.Default.Delete, "Limpar", tint = Mesh.MUTED) }
+        }
+
+        if (isRoom && !loggedIn && contact != null) {
+            Box(Modifier.padding(horizontal = 12.dp)) { LoginCard(contact, compact = true) }
+        }
+
+        LazyColumn(
+            Modifier.weight(1f).fillMaxWidth(),
+            state = listState,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            if (messages.isEmpty()) item { Empty("Nenhuma mensagem ainda. Diga oi! 👋") }
+            items(messages, key = { it.id }) { m ->
+                Bubble(m, showSender = conv.isChannel || isRoom) {
+                    if (!conv.isChannel && m.outgoing && m.status == MsgStatus.FAILED) {
+                        MeshController.retryDirect(m.id, conv.prefixHex, m.text, m.timestamp)
                     }
                 }
             }
-            val bytes = input.toByteArray().size
-            Row(Modifier.fillMaxWidth().padding(8.dp).navigationBarsPadding(), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { if (it.toByteArray().size <= MAX_TEXT_BYTES) input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Mensagem") },
-                    supportingText = { Text("$bytes/$MAX_TEXT_BYTES") },
-                    maxLines = 4,
+        }
+
+        val bytes = input.toByteArray().size
+        val canSend = input.isNotBlank() && link.state == LinkState.RUNNING && (channel != null || !conv.isChannel)
+        Row(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.weight(1f)) {
+                MeshField(
+                    input, { if (it.toByteArray().size <= MAX_TEXT_BYTES) input = it }, "Mensagem",
+                    singleLine = false, supporting = "$bytes/$MAX_TEXT_BYTES",
                 )
-                IconButton(
-                    enabled = input.isNotBlank() && link.state == LinkState.RUNNING && (channel != null || !conv.isChannel),
-                    onClick = {
-                        val text = input.trim()
-                        if (conv.isChannel) channel?.let { MeshController.sendChannel(it, text) }
-                        else MeshController.sendDirect(conv.prefixHex, text)
-                        input = ""
-                    },
-                ) { Icon(Icons.AutoMirrored.Filled.Send, "Enviar") }
             }
+            Spacer(Modifier.width(8.dp))
+            IconButton(
+                enabled = canSend,
+                colors = IconButtonDefaults.iconButtonColors(containerColor = Mesh.ACCENT, contentColor = Mesh.ON_ACCENT,
+                    disabledContainerColor = Mesh.SURFACE_2, disabledContentColor = Mesh.MUTED),
+                onClick = {
+                    val text = input.trim()
+                    if (conv.isChannel) channel?.let { MeshController.sendChannel(it, text) }
+                    else MeshController.sendDirect(conv.prefixHex, text)
+                    input = ""
+                },
+            ) { Icon(Icons.AutoMirrored.Filled.Send, "Enviar") }
         }
     }
 
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
+            containerColor = Mesh.SURFACE_2,
             title = { Text("Limpar histórico?") },
             text = { Text("Apaga as mensagens desta conversa somente neste celular.") },
-            confirmButton = {
-                TextButton(onClick = { confirmClear = false; MeshController.clearConversation(conv.key) }) { Text("Limpar") }
-            },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancelar") } },
+            confirmButton = { Pill("Limpar", style = PillStyle.PRIMARY) { confirmClear = false; MeshController.clearConversation(conv.key) } },
+            dismissButton = { Pill("Cancelar", style = PillStyle.TEXT) { confirmClear = false } },
         )
     }
 }
 
 @Composable
 fun Bubble(m: Message, showSender: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp, 18.dp, if (m.outgoing) 4.dp else 18.dp, if (m.outgoing) 18.dp else 4.dp)
     Box(Modifier.fillMaxWidth(), contentAlignment = if (m.outgoing) Alignment.CenterEnd else Alignment.CenterStart) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = if (m.outgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.widthIn(max = 300.dp).clickable(onClick = onClick),
+        Column(
+            Modifier
+                .widthIn(max = 300.dp)
+                .clip(shape)
+                .background(if (m.outgoing) Mesh.ACCENT.copy(alpha = 0.18f) else Mesh.SURFACE)
+                .border(1.dp, if (m.outgoing) Mesh.ACCENT.copy(alpha = 0.5f) else Mesh.OUTLINE, shape)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                if (showSender && !m.outgoing) {
-                    Text(m.sender, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                }
-                Text(m.text)
-                Spacer(Modifier.padding(1.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val meta = buildList {
-                        add(formatTime(m.timestamp))
-                        if (!m.outgoing) {
-                            m.hops?.let { add(if (it == 0) "direto" else "$it salto(s)") } ?: add("rota direta")
-                            m.snr?.let { add("SNR %.1f".format(it)) }
-                        } else {
-                            add(
-                                when (m.status) {
-                                    MsgStatus.SENDING -> "enviando…"
-                                    MsgStatus.SENT -> if (showSender) "✓ enviado" else "✓ enviado, aguardando confirmação"
-                                    MsgStatus.DELIVERED -> "✓✓ entregue" + if (m.roundTripMs > 0) " (${m.roundTripMs / 1000.0}s)" else ""
-                                    MsgStatus.FAILED -> if (showSender) "✗ falhou" else "✗ sem confirmação — toque para reenviar"
-                                    MsgStatus.RECEIVED -> ""
-                                },
-                            )
-                        }
-                    }
-                    Text(meta.joinToString(" · "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (showSender && !m.outgoing) {
+                Text(m.sender, color = Mesh.ACCENT, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(m.text, color = Mesh.TEXT, fontSize = 15.sp)
+            val meta = buildList {
+                add(formatTime(m.timestamp))
+                if (!m.outgoing) {
+                    m.hops?.let { add(if (it == 0) "direto" else "$it salto(s)") } ?: add("rota direta")
+                    m.snr?.let { add("SNR %.1f".format(it)) }
+                } else {
+                    add(
+                        when (m.status) {
+                            MsgStatus.SENDING -> "enviando…"
+                            MsgStatus.SENT -> if (showSender) "✓ enviado" else "✓ enviado, aguardando confirmação"
+                            MsgStatus.DELIVERED -> "✓✓ entregue" + if (m.roundTripMs > 0) " (${m.roundTripMs / 1000.0}s)" else ""
+                            MsgStatus.FAILED -> if (showSender) "✗ falhou" else "✗ sem confirmação — toque para reenviar"
+                            MsgStatus.RECEIVED -> ""
+                        },
+                    )
                 }
             }
+            val color = when {
+                m.outgoing && m.status == MsgStatus.DELIVERED -> Mesh.GREEN
+                m.outgoing && m.status == MsgStatus.FAILED -> Mesh.RED
+                else -> Mesh.MUTED
+            }
+            Text(meta.joinToString(" · "), color = color, fontSize = 11.sp)
         }
     }
 }

@@ -31,6 +31,9 @@ data class PacketLogEntry(val time: Long, val snr: Float, val rssi: Int, val len
 
 data class IncomingNotice(val conv: String, val title: String, val text: String)
 
+/** One line of a remote-admin console: a command we sent or the node's reply. */
+data class CliLine(val time: Long, val outgoing: Boolean, val text: String)
+
 /**
  * App-side companion client: talks to the native node with companion frames,
  * keeps contacts/channels in memory and the message history in [MessageStore].
@@ -69,6 +72,25 @@ object MeshController {
     private val _diag = MutableStateFlow("{}")
     val diag: StateFlow<String> = _diag.asStateFlow()
 
+    private val _stats = MutableStateFlow(NodeStats())
+    val stats: StateFlow<NodeStats> = _stats.asStateFlow()
+
+    /** Remote admin (repeaters / room servers), keyed by 6-byte pub key prefix hex. */
+    private val _logins = MutableStateFlow<Map<String, LoginResult>>(emptyMap())
+    val logins: StateFlow<Map<String, LoginResult>> = _logins.asStateFlow()
+
+    private val _repeaterStatus = MutableStateFlow<Map<String, RepeaterStatus>>(emptyMap())
+    val repeaterStatus: StateFlow<Map<String, RepeaterStatus>> = _repeaterStatus.asStateFlow()
+
+    private val _cli = MutableStateFlow<Map<String, List<CliLine>>>(emptyMap())
+    val cli: StateFlow<Map<String, List<CliLine>>> = _cli.asStateFlow()
+
+    private val _paths = MutableStateFlow<Map<String, PathDiscovery>>(emptyMap())
+    val paths: StateFlow<Map<String, PathDiscovery>> = _paths.asStateFlow()
+
+    private val _autoAdd = MutableStateFlow<Pair<Int, Int>?>(null)
+    val autoAdd: StateFlow<Pair<Int, Int>?> = _autoAdd.asStateFlow()
+
     private val _events = MutableStateFlow<String?>(null)
     val events: StateFlow<String?> = _events.asStateFlow()
 
@@ -97,6 +119,37 @@ object MeshController {
         scope.launch { for (f in pushes) handlePush(f) }
     }
 
+    @Volatile private var previewMode = false
+
+    /** Screenshot tests: fills the state without loading the native library. */
+    @androidx.annotation.VisibleForTesting
+    fun initForPreview(
+        context: Context, self: SelfInfo, device: DeviceInfo, contacts: List<Contact>, channels: List<Channel>,
+        stats: NodeStats, log: List<PacketLogEntry>,
+    ) {
+        if (!::store.isInitialized) {
+            store = MessageStore(context.applicationContext)
+            prefs = context.applicationContext.getSharedPreferences("app", Context.MODE_PRIVATE)
+        }
+        previewMode = true
+        _link.value = LinkStatus(LinkState.RUNNING, "Radio running")
+        _self.value = self
+        _device.value = device
+        _contacts.value = contacts
+        _channels.value = channels
+        _stats.value = stats
+        _packetLog.value = log
+        _diag.value = """{"driver":"sx1262_ch341","status":82,"freq":923124992,"bw":62500,"sf":8,"cr":8,"tx":22,"noise_floor":-120,"dev_errors_hex":"0x0000","tcxo":1,"dio2_rf":1}"""
+        bump()
+    }
+
+    @androidx.annotation.VisibleForTesting
+    fun previewAdmin(prefixHex: String, login: LoginResult, status: RepeaterStatus?, cliLines: List<CliLine>) {
+        _logins.update { it + (prefixHex to login) }
+        if (status != null) _repeaterStatus.update { it + (prefixHex to status) }
+        _cli.update { it + (prefixHex to cliLines) }
+    }
+
     private fun onFrame(frame: ByteArray) {
         if (frame.isEmpty()) return
         if (Protocol.isPush(frame)) {
@@ -116,7 +169,7 @@ object MeshController {
     private suspend fun request(
         frame: ByteArray, timeoutMs: Long = 5000, isLast: (ByteArray) -> Boolean = { true },
     ): List<ByteArray>? = cmdMutex.withLock {
-        if (_link.value.state != LinkState.RUNNING) return@withLock null
+        if (_link.value.state != LinkState.RUNNING || previewMode) return@withLock null
         val d = CompletableDeferred<List<ByteArray>>()
         synchronized(pendingLock) {
             pendingFrames = mutableListOf()
@@ -134,7 +187,7 @@ object MeshController {
 
     private fun ok(resp: ByteArray?) = resp != null && resp[0].toInt() == Protocol.RESP_OK
 
-    private fun notice(text: String) {
+    fun notice(text: String) {
         _events.value = text
     }
 
@@ -168,6 +221,24 @@ object MeshController {
         applyAutoAdvert()
         syncMessages()
         refreshDiag()
+        refreshStats()
+        refreshAutoAdd()
+    }
+
+    suspend fun refreshStats() {
+        var st = _stats.value
+        for (type in listOf(Protocol.STATS_CORE, Protocol.STATS_RADIO, Protocol.STATS_PACKETS)) {
+            val f = requestOne(Protocol.getStats(type)) ?: return
+            if (f[0].toInt() == Protocol.RESP_STATS) st = Protocol.parseStats(f, st)
+        }
+        _stats.value = st
+    }
+
+    suspend fun refreshAutoAdd() {
+        val f = requestOne(Protocol.getAutoAddConfig()) ?: return
+        if (f[0].toInt() == Protocol.RESP_AUTOADD_CONFIG && f.size >= 3) {
+            _autoAdd.value = (f[1].toInt() and 0xFF) to (f[2].toInt() and 0xFF)
+        }
     }
 
     suspend fun refreshSelf() {
@@ -204,7 +275,7 @@ object MeshController {
     }
 
     suspend fun refreshDiag() {
-        if (_link.value.state == LinkState.RUNNING) _diag.value = NativeMesh.nativeRadioDiag()
+        if (_link.value.state == LinkState.RUNNING && !previewMode) _diag.value = NativeMesh.nativeRadioDiag()
     }
 
     // ---- incoming ----
@@ -229,6 +300,21 @@ object MeshController {
             // Auto-added contacts arrive as PUSH_ADVERT (new or updated): reload the list.
             Protocol.PUSH_ADVERT, Protocol.PUSH_PATH_UPDATED, Protocol.PUSH_CONTACT_DELETED -> scheduleContactsRefresh()
             Protocol.PUSH_CONTACTS_FULL -> notice("Lista de contatos cheia")
+            Protocol.PUSH_LOGIN_SUCCESS, Protocol.PUSH_LOGIN_FAIL -> Protocol.parseLoginResult(f)?.let { r ->
+                val key = r.prefix.toHex()
+                _logins.update { it + (key to r) }
+                val name = contactByPrefix(key)?.name ?: key
+                notice(if (r.success) "Login em $name ok${if (r.isAdmin) " (admin)" else ""}" else "Login em $name recusado")
+                if (r.success && contactByPrefix(key)?.type == Protocol.ADV_TYPE_ROOM) scope.launch { syncMessages() }
+            }
+            Protocol.PUSH_STATUS_RESPONSE -> Protocol.parseRepeaterStatus(f)?.let { st ->
+                _repeaterStatus.update { it + (st.prefix.toHex() to st) }
+            }
+            Protocol.PUSH_PATH_DISCOVERY_RESPONSE -> Protocol.parsePathDiscovery(f)?.let { pd ->
+                _paths.update { it + (pd.prefix.toHex() to pd) }
+                val name = contactByPrefix(pd.prefix.toHex())?.name ?: pd.prefix.toHex()
+                notice("Rota para $name: ${Protocol.hops(pd.outLen) ?: 0} salto(s)")
+            }
             Protocol.PUSH_LOG_RX_DATA -> logRx(f)
         }
     }
@@ -278,10 +364,23 @@ object MeshController {
             title = ch?.name ?: "Canal ${m.channelIdx}"
         } else {
             val prefix = m.senderPrefix!!
+            val from = contactByPrefix(prefix.toHex())
+            if (m.txtType == Protocol.TXT_TYPE_CLI_DATA) {
+                // Reply to a remote-admin command: goes to that node's console, not to the chat.
+                addCli(prefix.toHex(), CliLine(System.currentTimeMillis(), false, m.text.trimEnd()))
+                return
+            }
             conv = ConvKey.contact(prefix.toHex())
-            sender = contactByPrefix(prefix.toHex())?.name ?: prefix.toHex()
+            val author = m.authorPrefix?.toHex()
+            // Room server posts: show the original author, not the room.
+            sender = if (author != null) {
+                if (_self.value?.pubKey?.toHex()?.startsWith(author) == true) _self.value!!.name
+                else contactByPrefix(author)?.name ?: author
+            } else {
+                from?.name ?: prefix.toHex()
+            }
             text = m.text
-            title = sender
+            title = if (author != null) "${from?.name ?: "Sala"}: $sender" else sender
         }
         if (store.isDuplicate(conv, sender, text, m.timestamp)) return
         val reading = activeConversation == conv
@@ -394,6 +493,14 @@ object MeshController {
         notice("Localização salva")
     }
 
+    /** Who may read our battery/telemetry: 0 nobody, 1 favourites, 2 everyone (needed to answer path discovery). */
+    fun setTelemetryBase(mode: Int) = scope.launch {
+        val s = _self.value ?: return@launch
+        val modes = (s.telemetryModes and 0x03.inv()) or (mode and 0x03)
+        requestOne(Protocol.setOtherParams(s.manualAddContacts, modes, s.advertLocPolicy, s.multiAcks))
+        refreshSelf()
+    }
+
     fun setManualAdd(manual: Boolean) = scope.launch {
         val s = _self.value ?: return@launch
         requestOne(Protocol.setOtherParams(manual, s.telemetryModes, s.advertLocPolicy, s.multiAcks))
@@ -417,6 +524,102 @@ object MeshController {
         } else {
             notice("Falha ao adicionar (lista cheia?)")
         }
+    }
+
+    // ---- remote admin: repeaters and room servers ----
+
+    fun savedPassword(c: Contact): String = prefs.getString("pw_${c.keyHex}", "") ?: ""
+
+    fun login(c: Contact, password: String, remember: Boolean) = scope.launch {
+        prefs.edit().apply { if (remember) putString("pw_${c.keyHex}", password) else remove("pw_${c.keyHex}") }.apply()
+        _logins.update { it - c.pubKey.copyOf(6).toHex() }
+        val resp = requestOne(Protocol.login(c.pubKey, password))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice("Falha ao enviar login") else notice("Login enviado…")
+    }
+
+    fun logout(c: Contact) = scope.launch {
+        requestOne(Protocol.logout(c.pubKey))
+        _logins.update { it - c.pubKey.copyOf(6).toHex() }
+    }
+
+    fun requestStatus(c: Contact) = scope.launch {
+        val resp = requestOne(Protocol.statusRequest(c.pubKey))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice("Falha ao pedir status")
+    }
+
+    fun sendCli(c: Contact, command: String) = scope.launch {
+        val key = c.pubKey.copyOf(6).toHex()
+        addCli(key, CliLine(System.currentTimeMillis(), true, command))
+        val resp = requestOne(Protocol.sendText(c.pubKey, command, now(), 0, Protocol.TXT_TYPE_CLI_DATA))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) addCli(key, CliLine(System.currentTimeMillis(), false, "(falha ao enviar)"))
+    }
+
+    private fun addCli(key: String, line: CliLine) {
+        _cli.update { m -> m + (key to ((m[key] ?: emptyList()) + line).takeLast(200)) }
+    }
+
+    fun clearCli(c: Contact) {
+        _cli.update { it - c.pubKey.copyOf(6).toHex() }
+    }
+
+    // ---- paths ----
+
+    fun discoverPath(c: Contact) = scope.launch {
+        val resp = requestOne(Protocol.pathDiscovery(c.pubKey))
+        notice(if (resp != null && resp[0].toInt() == Protocol.RESP_SENT) "Descobrindo rota para ${c.name}…" else "Falha ao descobrir rota")
+    }
+
+    fun usePath(c: Contact, pd: PathDiscovery) = scope.launch {
+        if (c.raw.size < 144) return@launch
+        if (ok(requestOne(Protocol.setContactPath(c.raw, pd.outLen, pd.outPath)))) {
+            notice("Rota salva para ${c.name}")
+            refreshContacts()
+        }
+    }
+
+    // ---- sharing (meshcore:// links, QR codes) ----
+
+    fun importLink(link: MeshLink) = scope.launch {
+        when (link) {
+            is MeshLink.AddContact -> {
+                if (ok(requestOne(Protocol.addContactByKey(link.pubKey, link.name, link.type)))) {
+                    refreshContacts()
+                    notice("Contato ${link.name} adicionado")
+                } else notice("Falha ao adicionar contato")
+            }
+            is MeshLink.AddChannel -> {
+                val existing = _channels.value.firstOrNull { it.secret.contentEquals(link.secret) }
+                val free = _channels.value.firstOrNull { it.isEmpty }
+                when {
+                    existing != null -> notice("Canal ${existing.name} já existe")
+                    free == null -> notice("Todos os slots de canal estão ocupados")
+                    else -> setChannel(free.index, link.name, link.secret)
+                }
+            }
+        }
+    }
+
+    // ---- identity backup ----
+
+    suspend fun exportPrivateKey(): ByteArray? {
+        val f = requestOne(Protocol.exportPrivateKey()) ?: return null
+        return if (f[0].toInt() == Protocol.RESP_PRIVATE_KEY && f.size >= 65) f.copyOfRange(1, 65) else null
+    }
+
+    fun importPrivateKey(key: ByteArray) = scope.launch {
+        if (key.size != 64) {
+            notice("Chave inválida (precisa de 64 bytes)")
+            return@launch
+        }
+        if (ok(requestOne(Protocol.importPrivateKey(key)))) {
+            refreshSelf()
+            refreshContacts()
+            notice("Identidade restaurada")
+        } else notice("Chave recusada pelo nó")
+    }
+
+    fun setAutoAdd(config: Int, maxHops: Int) = scope.launch {
+        if (ok(requestOne(Protocol.setAutoAddConfig(config, maxHops)))) refreshAutoAdd()
     }
 
     fun removeContact(c: Contact) = scope.launch {

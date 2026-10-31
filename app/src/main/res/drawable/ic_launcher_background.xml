@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon background: dark navy-to-teal gradient with a faint LoRa chirp (MeshSDR family). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108">
+                <item android:offset="0" android:color="#FF0B1220" />
+                <item android:offset="1" android:color="#FF0F4C5C" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M6,100 L18,92 L18,100 L30,92 L30,100 L42,92 L42,100 L54,92 L54,100 L66,92 L66,100 L78,92 L78,100 L90,92 L90,100 L102,92"
+        android:strokeColor="#22D3EE"
+        android:strokeAlpha="0.18"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
+</vector>

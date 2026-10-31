@@ -175,6 +175,82 @@ class TwoNodeMeshTest {
     }
 
     @Test
+    fun sharingStatsBackupAndPaths() {
+        val selfA = handshake(a, "Alice")
+        val selfB = handshake(b, "Bob")
+
+        // Hashtag key vector from MeshCore docs/companion_protocol.md.
+        assertEquals("9cd8fcf22a47333b591d96a2b848b73f", Protocol.hashtagSecret("#test").toHex())
+
+        // meshcore:// contact link: Alice adds Bob without any advert.
+        val uri = Protocol.contactUri("Bob Ç", selfB.pubKey, Protocol.ADV_TYPE_CHAT)
+        val link = Protocol.parseUri(uri) as MeshLink.AddContact
+        assertEquals("Bob Ç", link.name)
+        a.call(Protocol.addContactByKey(link.pubKey, link.name, link.type), Protocol.RESP_OK)
+        a.send(Protocol.getContacts())
+        val added = Protocol.parseContact(a.await { it[0].toInt() == Protocol.RESP_CONTACT })!!
+        assertArrayEquals(selfB.pubKey, added.pubKey)
+        assertEquals("Bob Ç", added.name)
+        assertEquals(Protocol.OUT_PATH_UNKNOWN, added.outPathLen)
+
+        // ... and can message him right away (Bob learns Alice from the message? no: he needs her key).
+        b.call(Protocol.addContactByKey(selfA.pubKey, "Alice", Protocol.ADV_TYPE_CHAT), Protocol.RESP_OK)
+        a.call(Protocol.sendText(selfB.pubKey, "via QR", System.currentTimeMillis() / 1000), Protocol.RESP_SENT)
+        b.await { (it[0].toInt() and 0xFF) == Protocol.PUSH_MSG_WAITING }
+        assertEquals("via QR", b.syncOne().text)
+
+        // Saving a path on a contact.
+        val withPath = Protocol.setContactPath(added.raw, 0x42, byteArrayOf(0x11, 0x22, 0x33, 0x44))
+        a.call(withPath, Protocol.RESP_OK)
+        a.send(Protocol.getContacts())
+        val routed = Protocol.parseContact(a.await { it[0].toInt() == Protocol.RESP_CONTACT })!!
+        assertEquals(0x42, routed.outPathLen)
+        assertEquals(listOf("1122", "3344"), Protocol.pathHops(routed.outPathLen, routed.raw.copyOfRange(36, 100)))
+        a.call(Protocol.resetPath(selfB.pubKey), Protocol.RESP_OK)
+
+        // Channel link round trip.
+        val ch = Protocol.parseUri(Protocol.channelUri("#teste", Protocol.hashtagSecret("#teste"))) as MeshLink.AddChannel
+        assertEquals("#teste", ch.name)
+        assertArrayEquals(Protocol.hashtagSecret("#teste"), ch.secret)
+        assertEquals(null, Protocol.parseUri("https://example.com"))
+
+        // Local stats.
+        var st = NodeStats()
+        for (t in listOf(Protocol.STATS_CORE, Protocol.STATS_RADIO, Protocol.STATS_PACKETS)) {
+            st = Protocol.parseStats(a.call(Protocol.getStats(t), Protocol.RESP_STATS), st)
+        }
+        assertTrue(st.sent >= 1)
+        assertTrue(st.uptimeSecs >= 0)
+
+        // Auto-add config.
+        a.call(Protocol.setAutoAddConfig(Protocol.AUTOADD_CHAT or Protocol.AUTOADD_REPEATER, 3), Protocol.RESP_OK)
+        val cfg = a.call(Protocol.getAutoAddConfig(), Protocol.RESP_AUTOADD_CONFIG)
+        assertEquals(Protocol.AUTOADD_CHAT or Protocol.AUTOADD_REPEATER, cfg[1].toInt())
+        assertEquals(3, cfg[2].toInt())
+
+        // Identity backup: export, then import it into Bob's node.
+        val key = a.call(Protocol.exportPrivateKey(), Protocol.RESP_PRIVATE_KEY).copyOfRange(1, 65)
+        assertEquals(64, key.size)
+        b.call(Protocol.importPrivateKey(key), Protocol.RESP_OK)
+        val bAsAlice = Protocol.parseSelfInfo(b.call(Protocol.appStart("test"), Protocol.RESP_SELF_INFO))!!
+        assertArrayEquals(selfA.pubKey, bAsAlice.pubKey)
+    }
+
+    @Test
+    fun pathDiscoveryBetweenCompanions() {
+        val selfA = handshake(a, "Alice")
+        val selfB = handshake(b, "Bob")
+        a.call(Protocol.addContactByKey(selfB.pubKey, "Bob", Protocol.ADV_TYPE_CHAT), Protocol.RESP_OK)
+        b.call(Protocol.addContactByKey(selfA.pubKey, "Alice", Protocol.ADV_TYPE_CHAT), Protocol.RESP_OK)
+        // Bob answers path discovery only if he shares base telemetry (battery) with everyone.
+        b.call(Protocol.setOtherParams(false, 2, 0, 0), Protocol.RESP_OK)
+        a.call(Protocol.pathDiscovery(selfB.pubKey), Protocol.RESP_SENT)
+        val pd = Protocol.parsePathDiscovery(a.await(8000) { (it[0].toInt() and 0xFF) == Protocol.PUSH_PATH_DISCOVERY_RESPONSE })!!
+        assertArrayEquals(selfB.pubKey.copyOf(6), pd.prefix)
+        assertEquals(0, Protocol.hops(pd.outLen))
+    }
+
+    @Test
     fun manualAddDiscoveredContact() {
         handshake(a, "Alice")
         handshake(b, "Bob")
