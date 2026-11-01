@@ -43,7 +43,7 @@ object MeshController {
     private lateinit var store: MessageStore
     private lateinit var prefs: SharedPreferences
 
-    private val _link = MutableStateFlow(LinkStatus(LinkState.NO_DEVICE, tr("Connect the MeshStick over USB OTG", "Conecte o MeshStick via USB OTG")))
+    private val _link = MutableStateFlow(LinkStatus(LinkState.NO_DEVICE, tr("Connect the USB radio over OTG", "Conecte o rádio USB via OTG")))
     val link: StateFlow<LinkStatus> = _link.asStateFlow()
 
     private val _self = MutableStateFlow<SelfInfo?>(null)
@@ -205,7 +205,7 @@ object MeshController {
                 scope.launch { handshake() }
             }
             NativeMesh.STATUS_ERROR -> _link.value = LinkStatus(LinkState.ERROR, message)
-            else -> _link.value = LinkStatus(LinkState.NO_DEVICE, tr("Connect the MeshStick over USB OTG", "Conecte o MeshStick via USB OTG"))
+            else -> _link.value = LinkStatus(LinkState.NO_DEVICE, tr("Connect the USB radio over OTG", "Conecte o rádio USB via OTG"))
         }
     }
 

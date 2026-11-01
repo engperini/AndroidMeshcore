@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RadioUsbBus.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -13,29 +15,35 @@
 // Pins are the CH341 D0..D7 lines. In SPI mode D3 = SCK, D5 = MOSI and
 // D7 = MISO are owned by the SPI engine; D0..D2 and D4 are usable as GPIO
 // outputs/inputs, D6 as input.
-class Ch341Bridge {
+class Ch341Bridge : public RadioUsbBus {
 public:
   Ch341Bridge() = default;
-  ~Ch341Bridge();
+  ~Ch341Bridge() override;
 
   Ch341Bridge(const Ch341Bridge&) = delete;
   Ch341Bridge& operator=(const Ch341Bridge&) = delete;
 
-  // Opens the first matching USB device. Throws std::runtime_error on failure.
-  void open(uint16_t vid = 0x1A86, uint16_t pid = 0x5512);
-  void close();
+  const char* driverName() const override { return "sx1262_ch341"; }
+
+  // Opens the device handed over with setAndroidFd(). Throws std::runtime_error on failure.
+  void open() override;
+  void close() override;
 
   // File descriptor from UsbDeviceConnection.getFileDescriptor(). The app
   // keeps ownership of the connection; close() only releases the interface.
   static void setAndroidFd(int fd);
   bool isOpen() const { return handle != nullptr; }
 
-  void pinMode(int pin, bool output);
-  void digitalWrite(int pin, bool high);
-  bool digitalRead(int pin);
+  void pinMode(int pin, bool output) override;
+  void digitalWrite(int pin, bool high) override;
+  bool digitalRead(int pin) override;
 
   // Full-duplex SPI transfer (mode 0, MSB first). Chip select is not touched.
-  void spiTransfer(const uint8_t* tx, uint8_t* rx, size_t len);
+  void spiTransfer(const uint8_t* tx, uint8_t* rx, size_t len) override;
+
+  const char* troubleshooting() const override {
+    return "; check the dongle, antenna and RPI_CS/RESET/BUSY pins (MeshStick: 0/2/4)";
+  }
 
 private:
   void* handle = nullptr;

@@ -1,21 +1,24 @@
 #pragma once
 
-#include "Ch341Bridge.h"
 #include "LinuxRadioBase.h"
+#include "RadioUsbBus.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 
 class SX1262LinuxRadio : public LinuxRadioBase {
 public:
   using Config = LinuxRadioBase::Config;
 
-  explicit SX1262LinuxRadio(const Config& cfg, bool use_ch341 = false);
+  // With a USB bus (CH341 MeshStick, XIAO bridge) the radio is driven over USB;
+  // without one, over Linux spidev and sysfs GPIO.
+  explicit SX1262LinuxRadio(const Config& cfg, std::unique_ptr<RadioUsbBus> bus = nullptr);
   ~SX1262LinuxRadio();
 
   void setConfig(const Config& cfg_) override;
   const Config& getConfig() const override { return cfg; }
-  const char* getDriverName() const override { return use_ch341 ? "sx1262_ch341" : "sx1262"; }
+  const char* getDriverName() const override { return bus ? bus->driverName() : "sx1262"; }
 
   void begin() override;
   int recvRaw(uint8_t* bytes, int sz) override;
@@ -42,8 +45,7 @@ public:
 
 private:
   Config cfg;
-  bool use_ch341 = false;
-  Ch341Bridge ch341;
+  std::unique_ptr<RadioUsbBus> bus;
   int spi_fd = -1;
   bool tx_pending = false;
   bool started = false;
@@ -59,6 +61,7 @@ private:
   int sysfs_gpio_base = -1;
 
   void openSpi();
+  void applyBusHints();
   void spiTransfer(const uint8_t* tx, uint8_t* rx, size_t len);
   int toSysfsPin(int pin);
   std::string gpioNodePath(int pin, const std::string& node);

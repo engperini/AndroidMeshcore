@@ -57,8 +57,7 @@ Ch341Bridge::~Ch341Bridge() {
   close();
 }
 
-void Ch341Bridge::open(uint16_t vid, uint16_t pid) {
-  (void)vid; (void)pid;
+void Ch341Bridge::open() {
   if (handle) return;
   fd = g_android_fd.load();
   if (fd < 0) {

@@ -134,6 +134,7 @@ bool radio_init();
 uint32_t radio_get_rng_seed();
 void radio_set_driver(const char* driver_name);
 bool radio_driver_is_ch341(const char* driver_name);
+bool radio_driver_is_xiao(const char* driver_name);
 void radio_set_params(float freq, float bw, uint8_t sf, uint8_t cr);
 void radio_set_tx_power(int8_t dbm);
 void radio_set_hw_config(const char* spi_dev_prefix, int spi_bus, int spi_cs, int spi_speed_hz,

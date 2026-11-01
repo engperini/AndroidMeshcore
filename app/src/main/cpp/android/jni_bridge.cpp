@@ -1,8 +1,10 @@
 // JNI entry points: runs the MeshCore companion firmware (MyMesh) on a native
-// thread, with the USB MeshStick as radio and the Android UI as companion app.
+// thread, with a USB radio (MeshStick or XIAO bridge) and the Android UI as
+// companion app.
 
 #include "AndroidSerialInterface.h"
 #include "Ch341Bridge.h"
+#include "XiaoBridge.h"
 #include "target.h"
 
 #include <helpers/ArduinoHelpers.h>
@@ -31,6 +33,10 @@ namespace {
 constexpr const char* TAG = "MeshCoreNative";
 
 enum Status { STATUS_STOPPED = 0, STATUS_STARTING = 1, STATUS_RUNNING = 2, STATUS_ERROR = 3 };
+
+// Must match NativeMesh.RADIO_* in Kotlin.
+enum RadioKind { RADIO_MESHSTICK = 0, RADIO_XIAO = 1 };
+std::atomic<int> g_radio_kind{RADIO_MESHSTICK};
 
 JavaVM* g_vm = nullptr;
 jclass g_bridge_class = nullptr;
@@ -98,9 +104,17 @@ void updateDiag() {
 }
 
 // MeshStick profile: CH341 + SX1262, pins D0/D2/D4/D6, DIO3 TCXO and DIO2 RF switch.
-void configureMeshStick() {
-  radio_set_driver("sx1262_ch341");
-  radio_set_hw_config("", 0, 0, 0, -1, -1, -1, -1, -1, -1, true, true);
+// XIAO profile: bridge logical pins; TCXO, DIO2 and RXEN come from the bridge.
+// Selecting a driver also drops the old radio backend, which releases USB.
+void configureRadio() {
+  if (g_radio_kind.load() == RADIO_XIAO) {
+    radio_set_driver("sx1262_xiao");
+    radio_set_hw_config("", 0, 0, 0, XiaoBridge::PIN_NSS, XiaoBridge::PIN_RESET, XiaoBridge::PIN_BUSY,
+                        XiaoBridge::PIN_DIO1, XiaoBridge::PIN_TXEN, XiaoBridge::PIN_RXEN, true, true);
+  } else {
+    radio_set_driver("sx1262_ch341");
+    radio_set_hw_config("", 0, 0, 0, -1, -1, -1, -1, -1, -1, true, true);
+  }
 }
 
 void runLoop(std::string data_dir) {
@@ -111,7 +125,7 @@ void runLoop(std::string data_dir) {
     if (!g_mesh_started) {
       LittleFS.setRoot(data_dir);
       board.begin();
-      configureMeshStick();
+      configureRadio();
       radio_init();
 
       fast_rng.begin(static_cast<long>(radio_get_rng_seed()));
@@ -120,7 +134,9 @@ void runLoop(std::string data_dir) {
       the_mesh.startInterface(g_serial);
       g_mesh_started = true;
     } else {
-      // Mesh state survives in memory; only the (re-plugged) radio is reopened.
+      // Mesh state survives in memory; only the (re-plugged) radio is reopened,
+      // and it may be a different kind of radio than last time.
+      configureRadio();
       radio_driver.begin();
     }
 
@@ -164,9 +180,10 @@ void runLoop(std::string data_dir) {
     notifyStatus(STATUS_ERROR, ex.what());
   }
 
-  // Drop the radio backend so the CH341 interface is released for the next start.
-  configureMeshStick();
+  // Drop the radio backend so the USB interface is released for the next start.
+  configureRadio();
   Ch341Bridge::setAndroidFd(-1);
+  XiaoBridge::setAndroidUsb(-1, -1, -1, -1);
 
   g_loop_env = nullptr;
   g_vm->DetachCurrentThread();
@@ -202,11 +219,20 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
 }
 
 JNIEXPORT void JNICALL Java_com_engperini_meshcore_core_NativeMesh_nativeStart(JNIEnv* env, jclass, jstring data_dir,
-                                                                             jint usb_fd) {
+                                                                             jint usb_fd, jint radio_kind,
+                                                                             jint ep_in, jint ep_out,
+                                                                             jint data_iface) {
   std::lock_guard<std::mutex> lock(g_thread_mutex);
   joinLoop();
   g_stop.store(false);
-  Ch341Bridge::setAndroidFd(usb_fd);
+  g_radio_kind.store(radio_kind == RADIO_XIAO ? RADIO_XIAO : RADIO_MESHSTICK);
+  if (radio_kind == RADIO_XIAO) {
+    Ch341Bridge::setAndroidFd(-1);
+    XiaoBridge::setAndroidUsb(usb_fd, ep_in, ep_out, data_iface);
+  } else {
+    XiaoBridge::setAndroidUsb(-1, -1, -1, -1);
+    Ch341Bridge::setAndroidFd(usb_fd);
+  }
   g_thread = std::thread(runLoop, toStdString(env, data_dir));
 }
 

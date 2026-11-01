@@ -120,14 +120,19 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
 | Radio | Connection | Status |
 |---|---|---|
 | USB MeshStick (CH341A `1a86:5512` + SX1262), e.g. the Elecrow MeshStick | USB OTG | ✅ supported, field-tested |
+| Seeed **XIAO nRF52840 + Wio-SX1262** kit with the [xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) firmware | USB OTG | ✅ supported |
 
 Pins, TCXO (DIO3) and RF switch (DIO2) are preset for the MeshStick (CH341 D0/D2/D4/D6), as in MeshCoreRPI.
+
+The XIAO kit has a microcontroller, but here it only works as a USB-to-SPI bridge, like the MeshStick's CH341: the
+node still runs on the phone. Flash the bridge once (double-press reset, copy the `.uf2` to the `XIAO-SENSE` drive),
+then plug it in. The bridge tells the app how its radio is wired (1.8 V TCXO, DIO2 and RXEN RF switch).
 
 You need:
 
 - An Android 8.0+ phone with **USB host/OTG** (almost all current phones).
 - An **OTG** adapter or cable (e.g. USB-C → USB-A female).
-- An **antenna** on the MeshStick **before** powering it.
+- An **antenna** on the MeshStick (or the XIAO's Wio-SX1262) **before** powering it.
 
 ## Install
 
@@ -188,7 +193,7 @@ attaches the APK to the release.
 | Path | What it is |
 |---|---|
 | `app/src/main/cpp/meshcore/` | MeshCore core (`src/`), companion firmware (`companion_radio/`), ed25519 and Crypto (rweather), copied from MeshCoreRPI |
-| `app/src/main/cpp/android/` | Android layer: `Ch341Bridge` over usbdevfs, SX1262 driver, target (battery/clock), `AndroidSerialInterface`, JNI |
+| `app/src/main/cpp/android/` | Android layer: USB radio buses over usbdevfs (`Ch341Bridge` for the MeshStick, `XiaoBridge` for the XIAO), SX1262 driver, target (battery/clock), `AndroidSerialInterface`, JNI |
 | `app/src/main/java/.../core/` | `Protocol.kt` (companion frames), `MeshController.kt` (state, command queue, messages), `NativeMesh.kt` (JNI), `Lang.kt` (EN/PT) |
 | `app/src/main/java/.../service/` | Foreground service + USB (permission, fd, wake lock, notifications) |
 | `app/src/main/java/.../ui/` | Compose screens |
@@ -332,15 +337,20 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
 | Rádio | Conexão | Status |
 |---|---|---|
 | USB MeshStick (CH341A `1a86:5512` + SX1262), por exemplo o Elecrow MeshStick | USB OTG | ✅ suportado |
+| Kit Seeed **XIAO nRF52840 + Wio-SX1262** com o firmware [xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) | USB OTG | ✅ suportado |
 
 Pinos, TCXO (DIO3) e chave de RF (DIO2) já vêm configurados para o MeshStick (CH341 D0/D2/D4/D6), como no
 MeshCoreRPI.
+
+O kit XIAO tem um microcontrolador, mas aqui ele só faz a ponte USB→SPI, como o CH341 do MeshStick: o nó continua
+rodando no celular. Grave a ponte uma vez (reset duas vezes, copie o `.uf2` para o drive `XIAO-SENSE`) e depois é
+só plugar. A ponte informa ao app como o rádio está ligado (TCXO de 1,8 V, chave de RF por DIO2 e RXEN).
 
 Você precisa de:
 
 - Celular Android 8.0 ou mais novo com **USB Host/OTG** (quase todos os atuais).
 - Adaptador ou cabo **OTG** (USB-C → USB-A fêmea, por exemplo).
-- **Antena** conectada ao MeshStick **antes** de ligar.
+- **Antena** conectada ao MeshStick (ou ao Wio-SX1262 do XIAO) **antes** de ligar.
 
 ## Instalação
 
@@ -402,7 +412,7 @@ APK à release.
 | Caminho | O que é |
 |---|---|
 | `app/src/main/cpp/meshcore/` | Núcleo MeshCore (`src/`), firmware companion (`companion_radio/`), ed25519 e Crypto (rweather), copiados do MeshCoreRPI |
-| `app/src/main/cpp/android/` | Camada Android: `Ch341Bridge` via usbdevfs, driver SX1262, target (bateria/relógio), `AndroidSerialInterface`, JNI |
+| `app/src/main/cpp/android/` | Camada Android: barramentos USB do rádio via usbdevfs (`Ch341Bridge` para o MeshStick, `XiaoBridge` para o XIAO), driver SX1262, target (bateria/relógio), `AndroidSerialInterface`, JNI |
 | `app/src/main/java/.../core/` | `Protocol.kt` (frames companion), `MeshController.kt` (estado, fila de comandos, mensagens), `NativeMesh.kt` (JNI) |
 | `app/src/main/java/.../service/` | Serviço em primeiro plano + USB (permissão, fd, wake lock, notificações) |
 | `app/src/main/java/.../ui/` | Telas Compose |

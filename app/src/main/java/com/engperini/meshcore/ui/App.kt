@@ -161,7 +161,7 @@ fun Header(onConnect: () -> Unit) {
             val summary = self?.let { s ->
                 val bytes = device?.let { " • " + bytesLabel(it.pathHashMode + 1) } ?: ""
                 "${s.name} • ${"%.3f".format(Locale.US, s.freqKhz / 1000.0)} MHz$bytes"
-            } ?: tr("MeshCore on your phone via a USB MeshStick", "MeshCore no celular via USB MeshStick")
+            } ?: tr("MeshCore on your phone via a USB MeshStick or XIAO", "MeshCore no celular via USB MeshStick ou XIAO")
             Muted(summary, size = 12, maxLines = 1)
         }
         val (label, color) = when (link.state) {
@@ -228,9 +228,9 @@ fun ConnectPanel(state: LinkState, message: String, onConnect: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             Muted(
                 tr(
-                    "1. Attach the antenna to the MeshStick.\n2. Plug it into the phone with a USB OTG cable or adapter.\n" +
+                    "1. Attach the antenna to the MeshStick or the XIAO's Wio-SX1262.\n2. Plug it into the phone with a USB OTG cable or adapter.\n" +
                         "3. Allow MeshCore USB to open and to access the device.",
-                    "1. Coloque a antena no MeshStick.\n2. Conecte-o ao celular com um cabo ou adaptador USB OTG.\n" +
+                    "1. Coloque a antena no MeshStick ou no Wio-SX1262 do XIAO.\n2. Conecte-o ao celular com um cabo ou adaptador USB OTG.\n" +
                         "3. Aceite abrir o MeshCore USB e permitir o acesso ao dispositivo.",
                 ),
             )

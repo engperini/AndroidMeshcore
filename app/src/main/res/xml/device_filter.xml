@@ -2,4 +2,8 @@
 <resources>
     <!-- WCH CH341A in SPI/GPIO mode: USB MeshStick (CH341 + SX1262), PineDio USB -->
     <usb-device vendor-id="6790" product-id="21778" />
+    <!-- Seeed XIAO nRF52840 (0x2886:0x8044) and XIAO nRF52840 Sense (0x2886:0x8045) with the
+         Wio-SX1262, running the xiao-sx1262-usb-bridge firmware -->
+    <usb-device vendor-id="10374" product-id="32836" />
+    <usb-device vendor-id="10374" product-id="32837" />
 </resources>

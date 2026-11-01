@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
             pendingLink = Protocol.parseUri(intent.dataString ?: "")
             if (MeshController.link.value.state !in listOf(LinkState.RUNNING, LinkState.STARTING)) UsbHelper.connect(this)
         } else if (intent?.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
-            // Opened by plugging in the stick: Android already granted access to it.
+            // Opened by plugging in the radio: Android already granted access to it.
             MeshService.start(this, intent.usbDevice())
         } else if (MeshController.link.value.state !in listOf(LinkState.RUNNING, LinkState.STARTING)) {
             UsbHelper.connect(this)

@@ -1,5 +1,8 @@
 #include "target.h"
 
+#include "Ch341Bridge.h"
+#include "XiaoBridge.h"
+
 #include <cstdlib>
 #include <atomic>
 #include <cmath>
@@ -39,7 +42,9 @@ void LinuxRadioDriver::ensureBackend() {
   }
 
   if (driver_name == "sx1262_ch341") {
-    backend = std::make_unique<SX1262LinuxRadio>(cfg, true);
+    backend = std::make_unique<SX1262LinuxRadio>(cfg, std::make_unique<Ch341Bridge>());
+  } else if (driver_name == "sx1262_xiao") {
+    backend = std::make_unique<SX1262LinuxRadio>(cfg, std::make_unique<XiaoBridge>());
   } else {
     driver_name = "sx1262";
     backend = std::make_unique<SX1262LinuxRadio>(cfg);
@@ -49,6 +54,8 @@ void LinuxRadioDriver::ensureBackend() {
 void LinuxRadioDriver::setDriverName(const std::string& name) {
   if (radio_driver_is_ch341(name.c_str())) {
     driver_name = "sx1262_ch341";
+  } else if (radio_driver_is_xiao(name.c_str())) {
+    driver_name = "sx1262_xiao";
   } else {
     driver_name = "sx1262";
   }
@@ -213,9 +220,17 @@ bool radio_driver_is_ch341(const char* driver_name) {
   return name == "sx1262_ch341" || name == "meshstick";
 }
 
+bool radio_driver_is_xiao(const char* driver_name) {
+  if (!driver_name) return false;
+  const std::string name(driver_name);
+  return name == "sx1262_xiao" || name == "xiao";
+}
+
 void radio_set_driver(const char* driver_name) {
   if (radio_driver_is_ch341(driver_name)) {
     g_driver_name = "sx1262_ch341";
+  } else if (radio_driver_is_xiao(driver_name)) {
+    g_driver_name = "sx1262_xiao";
   } else {
     g_driver_name = "sx1262";
   }
@@ -270,6 +285,17 @@ void radio_set_hw_config(const char* spi_dev_prefix, int spi_bus, int spi_cs, in
     if (!usable(g_cfg.irq_pin, false)) g_cfg.irq_pin = 6;
     if (g_cfg.txen_pin >= 0 && !usable(g_cfg.txen_pin, true)) g_cfg.txen_pin = -1;
     if (g_cfg.rxen_pin >= 0 && !usable(g_cfg.rxen_pin, true)) g_cfg.rxen_pin = -1;
+  } else if (g_driver_name == "sx1262_xiao") {
+    // Pins are the bridge's logical ids (NSS 0, RESET 1, BUSY 2, DIO1 3,
+    // RXEN 4, TXEN 5). The bridge reports which RF switch pins exist, and
+    // the radio drops the missing ones when it opens.
+    auto in_range = [](int pin) { return pin >= 0 && pin <= XiaoBridge::PIN_TXEN; };
+    if (!in_range(g_cfg.cs_pin)) g_cfg.cs_pin = XiaoBridge::PIN_NSS;
+    if (!in_range(g_cfg.reset_pin)) g_cfg.reset_pin = XiaoBridge::PIN_RESET;
+    if (!in_range(g_cfg.busy_pin)) g_cfg.busy_pin = XiaoBridge::PIN_BUSY;
+    if (!in_range(g_cfg.irq_pin)) g_cfg.irq_pin = XiaoBridge::PIN_DIO1;
+    if (!in_range(g_cfg.rxen_pin)) g_cfg.rxen_pin = XiaoBridge::PIN_RXEN;
+    if (!in_range(g_cfg.txen_pin)) g_cfg.txen_pin = XiaoBridge::PIN_TXEN;
   }
   radio_driver.setConfig(g_cfg);
 }

@@ -25,6 +25,7 @@ add_library(meshcore SHARED
   ${MC}/companion_radio/DataStore.cpp
   ${MC}/companion_radio/MyMesh.cpp
   ${AND}/Ch341Bridge.cpp
+  ${AND}/XiaoBridge.cpp
   ${AND}/SX1262LinuxRadio.cpp
   ${AND}/target_android.cpp
   ${AND}/AndroidSerialInterface.cpp

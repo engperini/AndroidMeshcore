@@ -34,12 +34,13 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * Foreground service that owns the USB connection to the MeshStick and keeps
+ * Foreground service that owns the USB connection to the radio (MeshStick or XIAO bridge) and keeps
  * the native MeshCore node running while the screen is off.
  */
 class MeshService : Service() {
     private var connection: UsbDeviceConnection? = null
     private var device: UsbDevice? = null
+    private var xiaoLink: XiaoLink? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var messageNotifId = 100
@@ -48,7 +49,7 @@ class MeshService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             val d = intent.usbDevice() ?: return
             if (d.deviceName == device?.deviceName) {
-                MeshController.setNoDevice(tr("MeshStick disconnected", "MeshStick desconectado"))
+                MeshController.setNoDevice(tr("USB radio disconnected", "Rádio USB desconectado"))
                 stopSelf()
             }
         }
@@ -89,9 +90,9 @@ class MeshService : Service() {
             return START_NOT_STICKY
         }
         val usb = getSystemService(USB_SERVICE) as UsbManager
-        val target = intent?.usbDevice() ?: UsbHelper.findMeshStick(usb)
+        val target = intent?.usbDevice()?.takeIf { UsbHelper.kindOf(it) != null } ?: UsbHelper.findRadio(usb)
         if (target == null || !usb.hasPermission(target)) {
-            MeshController.setNoDevice(tr("Connect the MeshStick over USB OTG", "Conecte o MeshStick via USB OTG"))
+            MeshController.setNoDevice(tr("Connect the USB radio over OTG", "Conecte o rádio USB via OTG"))
             stopSelf()
             return START_NOT_STICKY
         }
@@ -111,22 +112,39 @@ class MeshService : Service() {
             stopSelf()
             return
         }
-        // Claim with force=true so Android detaches its CDC/serial driver first.
-        conn.claimInterface(target.getInterface(0), true)
+        val kind = UsbHelper.kindOf(target) ?: RadioKind.MESHSTICK
+        var link: XiaoLink? = null
+        if (kind == RadioKind.XIAO_BRIDGE) {
+            link = UsbHelper.openXiao(conn, target)
+            if (link == null) {
+                conn.close()
+                MeshController.setNoDevice(tr("The XIAO is not a USB serial device", "O XIAO não é um dispositivo serial USB"))
+                stopSelf()
+                return
+            }
+        } else {
+            // Claim with force=true so Android detaches its CDC/serial driver first.
+            conn.claimInterface(target.getInterface(0), true)
+        }
         connection = conn
         device = target
+        xiaoLink = link
         acquireWakeLock()
         val dataDir = File(filesDir, "meshcore").apply { mkdirs() }
-        NativeMesh.nativeStart(dataDir.absolutePath, conn.fileDescriptor)
+        NativeMesh.nativeStart(
+            dataDir.absolutePath, conn.fileDescriptor, kind.nativeId,
+            link?.epIn ?: -1, link?.epOut ?: -1, link?.dataInterface ?: -1,
+        )
     }
 
     private fun closeDevice() {
-        if (connection != null) {
-            NativeMesh.nativeStop()
-            connection?.close()
-            connection = null
-            device = null
-        }
+        val conn = connection ?: return
+        NativeMesh.nativeStop()
+        xiaoLink?.let { UsbHelper.closeXiao(conn, it) }
+        conn.close()
+        connection = null
+        device = null
+        xiaoLink = null
     }
 
     private fun acquireWakeLock() {

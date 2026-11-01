@@ -97,7 +97,7 @@ fun SettingsScreen(onConnect: () -> Unit) {
             item {
                 MeshCard {
                     CardTitle(tr("Radio", "Rádio"))
-                    Muted(tr("Connect the MeshStick to see and change the node settings.", "Conecte o MeshStick para ver e alterar as configurações do nó."))
+                    Muted(tr("Connect the USB radio to see and change the node settings.", "Conecte o rádio USB para ver e alterar as configurações do nó."))
                     Pill(tr("Connect", "Conectar"), Modifier.fillMaxWidth(), PillStyle.PRIMARY, onClick = onConnect)
                 }
             }
@@ -412,7 +412,7 @@ private fun ServiceCard(running: Boolean) {
     val device by MeshController.device.collectAsState()
     MeshCard {
         CardTitle(tr("Service", "Serviço"))
-        Muted(tr("The radio keeps working with the screen off while the MeshStick is connected.", "O rádio continua funcionando com a tela apagada enquanto o MeshStick estiver conectado."), size = 12)
+        Muted(tr("The radio keeps working with the screen off while the USB radio is connected.", "O rádio continua funcionando com a tela apagada enquanto o rádio USB estiver conectado."), size = 12)
         if (running) {
             Pill(tr("Stop radio", "Parar rádio"), Modifier.fillMaxWidth(), PillStyle.OUTLINED) {
                 context.startService(Intent(context, MeshService::class.java).setAction(MeshService.ACTION_STOP))
