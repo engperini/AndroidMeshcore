@@ -124,12 +124,16 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
 |---|---|---|
 | USB MeshStick (CH341A `1a86:5512` + SX1262), e.g. the Elecrow MeshStick | USB OTG | ✅ supported, field-tested |
 | Seeed **XIAO nRF52840 + Wio-SX1262** kit with the [xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) firmware | USB OTG | ✅ supported |
+| **USB LoRa stick** (CH341F + Core1262-HF, no MCU), in [`hardware/`](hardware/) | USB OTG | 🧪 v0.1 design, not built yet |
 
 Pins, TCXO (DIO3) and RF switch (DIO2) are preset for the MeshStick (CH341 D0/D2/D4/D6), as in MeshCoreRPI.
 
 The XIAO kit has a microcontroller, but here it only works as a USB-to-SPI bridge, like the MeshStick's CH341: the
 node still runs on the phone. Flash the bridge once (double-press reset, copy the `.uf2` to the `XIAO-SENSE` drive),
 then plug it in. The bridge tells the app how its radio is wired (1.8 V TCXO, DIO2 and RXEN RF switch).
+
+**Future hardware:** [`hardware/`](hardware/) has a no-MCU USB LoRa stick (KiCad board with the JLCPCB order files)
+and 3D-printable cases for the stick and for the XIAO kit, each with a straight USB-C male-male adapter inside.
 
 You need:
 
@@ -344,6 +348,7 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
 |---|---|---|
 | USB MeshStick (CH341A `1a86:5512` + SX1262), por exemplo o Elecrow MeshStick | USB OTG | ✅ suportado |
 | Kit Seeed **XIAO nRF52840 + Wio-SX1262** com o firmware [xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) | USB OTG | ✅ suportado |
+| **Pendrive LoRa** (CH341F + Core1262-HF, sem MCU), em [`hardware/`](hardware/) | USB OTG | 🧪 projeto v0.1, ainda não fabricado |
 
 Pinos, TCXO (DIO3) e chave de RF (DIO2) já vêm configurados para o MeshStick (CH341 D0/D2/D4/D6), como no
 MeshCoreRPI.
@@ -351,6 +356,10 @@ MeshCoreRPI.
 O kit XIAO tem um microcontrolador, mas aqui ele só faz a ponte USB→SPI, como o CH341 do MeshStick: o nó continua
 rodando no celular. Grave a ponte uma vez (reset duas vezes, copie o `.uf2` para o drive `XIAO-SENSE`) e depois é
 só plugar. A ponte informa ao app como o rádio está ligado (TCXO de 1,8 V, chave de RF por DIO2 e RXEN).
+
+**Hardware futuro:** a pasta [`hardware/`](hardware/) tem um pendrive LoRa sem MCU (placa em KiCad com os arquivos
+para pedir na JLCPCB) e caixinhas para imprimir em 3D, para o pendrive e para o kit XIAO, cada uma com um adaptador
+USB-C macho-macho reto dentro.
 
 Você precisa de:
 
