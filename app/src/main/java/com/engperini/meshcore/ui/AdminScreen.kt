@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.engperini.meshcore.core.Contact
 import com.engperini.meshcore.core.MeshController
 import com.engperini.meshcore.core.Protocol
+import com.engperini.meshcore.core.RemoteOp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -79,12 +81,16 @@ fun AdminScreen(keyHex: String, nav: Nav) {
 fun LoginCard(c: Contact, compact: Boolean) {
     val logins by MeshController.logins.collectAsState()
     val login = logins[c.pubKey.prefixHex()]
+    val remote by MeshController.remote.collectAsState()
+    val wait = remote[MeshController.remoteKey(c.pubKey.prefixHex(), RemoteOp.LOGIN)]
     var password by remember(c.keyHex) { mutableStateOf(MeshController.savedPassword(c)) }
     var keepPw by remember(c.keyHex) { mutableStateOf(MeshController.savedPassword(c).isNotEmpty()) }
 
     MeshCard {
         CardTitle("Login") {
             when {
+                wait?.waiting == true -> StatusChip(tr("Waiting…", "Aguardando…"), Mesh.AMBER)
+                login == null && wait?.timedOut == true -> StatusChip(tr("No answer", "Sem resposta"), Mesh.RED)
                 login == null -> StatusChip(tr("Disconnected", "Desconectado"), Mesh.MUTED)
                 login.success -> StatusChip(if (login.isAdmin) "Admin" else tr("Guest", "Convidado"), Mesh.GREEN)
                 else -> StatusChip(tr("Refused", "Recusado"), Mesh.RED)
@@ -94,9 +100,14 @@ fun LoginCard(c: Contact, compact: Boolean) {
             MeshField(password, { password = it }, if (c.type == Protocol.ADV_TYPE_ROOM) tr("Room password", "Senha da sala") else tr("Password (empty = guest)", "Senha (vazio = convidado)"))
             MeshSwitchRow(tr("Remember password on this phone", "Lembrar senha neste celular"), keepPw) { keepPw = it }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill(tr("Log in", "Entrar"), Modifier.weight(1f), PillStyle.PRIMARY) { MeshController.login(c, password, keepPw) }
+                Pill(tr("Log in", "Entrar"), Modifier.weight(1f), PillStyle.PRIMARY, enabled = wait?.waiting != true) { MeshController.login(c, password, keepPw) }
                 if (login?.success == true) Pill(tr("Log out", "Sair"), Modifier.weight(1f), PillStyle.OUTLINED) { MeshController.logout(c) }
             }
+        }
+        if (login?.success == false) {
+            Muted(tr("The node refused the password.", "O nó recusou a senha."), size = 12)
+        } else {
+            RemoteFeedback(wait, tr("Check the signal and the route, then try again.", "Confira o sinal e a rota e tente de novo."))
         }
     }
 }
@@ -105,8 +116,15 @@ fun LoginCard(c: Contact, compact: Boolean) {
 private fun StatusCard(c: Contact) {
     val statuses by MeshController.repeaterStatus.collectAsState()
     val st = statuses[c.pubKey.prefixHex()]
+    val remote by MeshController.remote.collectAsState()
+    val wait = remote[MeshController.remoteKey(c.pubKey.prefixHex(), RemoteOp.STATUS)]
     MeshCard {
-        CardTitle(tr("Status", "Status")) { Pill(tr("Refresh", "Atualizar"), style = PillStyle.TEXT) { MeshController.requestStatus(c) } }
+        CardTitle(tr("Status", "Status")) {
+            Pill(if (wait?.waiting == true) tr("Waiting…", "Aguardando…") else tr("Refresh", "Atualizar"), style = PillStyle.TEXT, enabled = wait?.waiting != true) {
+                MeshController.requestStatus(c)
+            }
+        }
+        RemoteFeedback(wait, tr("Check the signal and the route, then try again.", "Confira o sinal e a rota e tente de novo."))
         if (st == null) {
             Muted(tr("Tap Refresh to request the status (battery, uptime, packets, noise).", "Toque em Atualizar para pedir o status (bateria, uptime, pacotes, ruído)."), size = 12)
         } else {
@@ -129,9 +147,14 @@ private fun StatusCard(c: Contact) {
 private fun CliCard(c: Contact) {
     val cli by MeshController.cli.collectAsState()
     val lines = cli[c.pubKey.prefixHex()] ?: emptyList()
+    val remote by MeshController.remote.collectAsState()
+    val wait = remote[MeshController.remoteKey(c.pubKey.prefixHex(), RemoteOp.CLI)]
+    val waiting = wait?.waiting == true
     var command by remember { mutableStateOf("") }
     val fmt = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
     val scroll = rememberScrollState()
+    // Keep the latest output (or the waiting line) in view.
+    LaunchedEffect(lines.size, waiting) { scroll.animateScrollTo(scroll.maxValue) }
 
     MeshCard {
         CardTitle(tr("Terminal (CLI)", "Terminal (CLI)")) { if (lines.isNotEmpty()) Pill(tr("Clear", "Limpar"), style = PillStyle.TEXT) { MeshController.clearCli(c) } }
@@ -147,8 +170,20 @@ private fun CliCard(c: Contact) {
                 if (lines.isEmpty()) Muted(tr("No output yet.", "Sem saída ainda."), size = 12)
                 lines.forEach { l ->
                     Text(
-                        "[${fmt.format(Date(l.time))}] ${if (l.outgoing) "> " else ""}${l.text}",
-                        color = if (l.outgoing) Mesh.ACCENT else Mesh.TEXT, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                        "[${fmt.format(Date(l.time))}] ${if (l.outgoing) "> " else ""}${if (l.info) "• " else ""}${l.text}",
+                        color = when {
+                            l.outgoing -> Mesh.ACCENT
+                            l.info -> Mesh.AMBER
+                            else -> Mesh.TEXT
+                        },
+                        fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                    )
+                }
+                if (waiting) {
+                    val via = if (wait?.flood == true) tr("by flood", "por flood") else tr("direct", "direto")
+                    Text(
+                        tr("… waiting for the reply ($via, up to ${(wait?.timeoutMs ?: 0) / 1000} s)", "… aguardando resposta ($via, até ${(wait?.timeoutMs ?: 0) / 1000} s)"),
+                        color = Mesh.AMBER, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
                     )
                 }
             }

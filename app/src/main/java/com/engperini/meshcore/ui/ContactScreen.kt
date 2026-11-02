@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.engperini.meshcore.core.MeshController
 import com.engperini.meshcore.core.Protocol
+import com.engperini.meshcore.core.RemoteOp
 import com.engperini.meshcore.data.ConvKey
 import java.util.Locale
 
@@ -42,6 +43,8 @@ import java.util.Locale
 fun ContactScreen(keyHex: String, nav: Nav) {
     val contacts by MeshController.contacts.collectAsState()
     val paths by MeshController.paths.collectAsState()
+    val remote by MeshController.remote.collectAsState()
+    val pings by MeshController.pings.collectAsState()
     val c = contacts.firstOrNull { it.keyHex == keyHex }
     val clipboard = LocalClipboardManager.current
     var qr by remember { mutableStateOf(false) }
@@ -88,21 +91,74 @@ fun ContactScreen(keyHex: String, nav: Nav) {
 
             MeshCard {
                 CardTitle(tr("Route", "Rota"))
+                val you = tr("You", "Você")
+                fun named(hops: List<String>) = hops.map { MeshController.hopName(it) }
                 val hops = Protocol.pathHops(c.outPathLen, c.raw.copyOfRange(minOf(36, c.raw.size), minOf(100, c.raw.size)))
-                KeyValue(tr("Outbound", "Saída"), Protocol.hops(c.outPathLen)?.let { if (it == 0) tr("direct (0 hops)", "direto (0 saltos)") else hopsCount(it) } ?: tr("flood (unknown)", "flood (desconhecida)"))
-                if (hops.isNotEmpty()) KeyValue(tr("Repeaters", "Repetidores"), hops.joinToString(" › "))
+                KeyValue(tr("Messages go", "Mensagens vão"), Protocol.hops(c.outPathLen)?.let { if (it == 0) tr("direct (0 hops)", "direto (0 saltos)") else hopsCount(it) } ?: tr("by flood (route unknown)", "por flood (rota desconhecida)"))
+                if (hops.isNotEmpty()) Muted((listOf(you) + named(hops) + c.name).joinToString(" › "), size = 12)
+
+                // Route discovery
+                val routeWait = remote[MeshController.remoteKey(prefix, RemoteOp.ROUTE)]
                 paths[prefix]?.let { pd ->
                     Spacer(Modifier.width(1.dp))
                     Text(tr("Discovered route", "Rota descoberta"), color = Mesh.ACCENT, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    KeyValue(tr("Out", "Ida"), Protocol.pathHops(pd.outLen, pd.outPath).ifEmpty { listOf(tr("direct", "direto")) }.joinToString(" › "))
-                    KeyValue(tr("Return", "Volta"), Protocol.pathHops(pd.inLen, pd.inPath).ifEmpty { listOf(tr("direct", "direto")) }.joinToString(" › "))
+                    Muted(tr("Out", "Ida") + ": " + (listOf(you) + named(Protocol.pathHops(pd.outLen, pd.outPath)) + c.name).joinToString(" › "), size = 12)
+                    Muted(tr("Back", "Volta") + ": " + (listOf(c.name) + named(Protocol.pathHops(pd.inLen, pd.inPath)) + you).joinToString(" › "), size = 12)
                     Pill(tr("Use this route", "Usar esta rota"), Modifier.fillMaxWidth(), PillStyle.ACTIVE) { MeshController.usePath(c, pd) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Pill(tr("Discover route", "Descobrir rota"), Modifier.weight(1f)) { MeshController.discoverPath(c) }
-                    Pill(tr("Reset", "Redefinir"), Modifier.weight(1f), PillStyle.OUTLINED) { MeshController.resetPath(c) }
+                RemoteFeedback(
+                    routeWait,
+                    tr(
+                        "The node may be out of range, or it does not share its route (telemetry permission).",
+                        "O nó pode estar fora de alcance ou não compartilha a rota (permissão de telemetria).",
+                    ),
+                )
+
+                // Ping (trace): repeaters only, they are the ones that relay it.
+                val isRepeater = c.type == Protocol.ADV_TYPE_REPEATER
+                if (isRepeater) {
+                    val pingWait = remote[MeshController.remoteKey(prefix, RemoteOp.PING)]
+                    pings[prefix]?.let { p ->
+                        Spacer(Modifier.width(1.dp))
+                        Text(
+                            tr("Ping", "Ping") + (p.roundTripMs?.let { " • " + tr("round trip ", "ida e volta ") + secondsLabel(it) } ?: ""),
+                            color = Mesh.ACCENT, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                        Muted(tr("Signal (SNR) each hop heard the ping at:", "Sinal (SNR) com que cada salto ouviu o ping:"), size = 12)
+                        p.trace.hops.forEachIndexed { i, h ->
+                            KeyValue("${i + 1}. ${MeshController.hopName(h)}", "%.1f dB".format(Locale.US, p.trace.snrs.getOrElse(i) { 0f }))
+                        }
+                        KeyValue("${p.trace.hops.size + 1}. $you", "%.1f dB".format(Locale.US, p.trace.finalSnr))
+                    }
+                    RemoteFeedback(
+                        pingWait,
+                        tr(
+                            "The repeater or a hop on the way did not relay it. Discover the route first if it is far away.",
+                            "O repetidor ou um salto no caminho não repassou. Se ele estiver longe, descubra a rota antes.",
+                        ),
+                    )
                 }
-                Muted(tr("Route discovery sends a flood request and shows the repeaters out and back.", "Descobrir rota envia um pedido por flood e mostra os repetidores de ida e volta."), size = 12)
+
+                val routeBusy = routeWait?.waiting == true
+                val pingBusy = remote[MeshController.remoteKey(prefix, RemoteOp.PING)]?.waiting == true
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Pill(if (routeBusy) tr("Discovering…", "Descobrindo…") else tr("Discover route", "Descobrir rota"), Modifier.weight(1f), enabled = !routeBusy) {
+                        MeshController.discoverPath(c)
+                    }
+                    if (isRepeater) {
+                        Pill(if (pingBusy) tr("Pinging…", "Pingando…") else "Ping", Modifier.weight(1f), enabled = !pingBusy) { MeshController.ping(c) }
+                    }
+                }
+                Pill(tr("Reset route", "Redefinir rota"), Modifier.fillMaxWidth(), PillStyle.OUTLINED) { MeshController.resetPath(c) }
+                Muted(
+                    tr(
+                        "Discover route asks the node, by flood, which repeaters the packets pass through, out and back." +
+                            (if (isRepeater) " Ping sends a test along the known route and back, and shows the signal at each hop." else ""),
+                        "Descobrir rota pergunta ao nó, por flood, por quais repetidores os pacotes passam, na ida e na volta." +
+                            (if (isRepeater) " Ping manda um teste pela rota conhecida, ida e volta, e mostra o sinal em cada salto." else ""),
+                    ),
+                    size = 12,
+                )
             }
 
             if (c.lat != 0.0 || c.lon != 0.0) {

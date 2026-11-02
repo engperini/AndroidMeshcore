@@ -32,7 +32,28 @@ data class PacketLogEntry(val time: Long, val snr: Float, val rssi: Int, val len
 data class IncomingNotice(val conv: String, val title: String, val text: String)
 
 /** One line of a remote-admin console: a command we sent or the node's reply. */
-data class CliLine(val time: Long, val outgoing: Boolean, val text: String)
+/** A line of a node's admin console. [info] lines are the app's own notes (waiting, no reply, hints). */
+data class CliLine(val time: Long, val outgoing: Boolean, val text: String, val info: Boolean = false)
+
+/** Requests sent to a remote node that wait for an answer over the mesh. */
+enum class RemoteOp { LOGIN, STATUS, CLI, ROUTE, PING }
+
+/**
+ * Where a remote request stands: [waiting] until the answer comes ([answeredMs] = how long it took) or the
+ * node's own estimate plus a margin runs out ([timedOut]). [flood] means it went out by flood (unknown route).
+ */
+data class RemoteState(
+    val op: RemoteOp,
+    val sentAt: Long,
+    val timeoutMs: Long,
+    val flood: Boolean,
+    val waiting: Boolean = true,
+    val answeredMs: Long? = null,
+    val timedOut: Boolean = false,
+)
+
+/** Answer to a ping (trace): the hops and SNRs, and the round trip. */
+data class PingResult(val trace: TraceResult, val roundTripMs: Long?, val at: Long)
 
 /**
  * App-side companion client: talks to the native node with companion frames,
@@ -87,6 +108,14 @@ object MeshController {
 
     private val _paths = MutableStateFlow<Map<String, PathDiscovery>>(emptyMap())
     val paths: StateFlow<Map<String, PathDiscovery>> = _paths.asStateFlow()
+
+    /** Remote requests in flight or just finished, keyed by [remoteKey]. */
+    private val _remote = MutableStateFlow<Map<String, RemoteState>>(emptyMap())
+    val remote: StateFlow<Map<String, RemoteState>> = _remote.asStateFlow()
+
+    private val _pings = MutableStateFlow<Map<String, PingResult>>(emptyMap())
+    val pings: StateFlow<Map<String, PingResult>> = _pings.asStateFlow()
+    private val pingTags = java.util.concurrent.ConcurrentHashMap<Int, String>()
 
     private val _autoAdd = MutableStateFlow<Pair<Int, Int>?>(null)
     val autoAdd: StateFlow<Pair<Int, Int>?> = _autoAdd.asStateFlow()
@@ -303,15 +332,23 @@ object MeshController {
             Protocol.PUSH_LOGIN_SUCCESS, Protocol.PUSH_LOGIN_FAIL -> Protocol.parseLoginResult(f)?.let { r ->
                 val key = r.prefix.toHex()
                 _logins.update { it + (key to r) }
+                endWait(key, RemoteOp.LOGIN)
                 val name = contactByPrefix(key)?.name ?: key
                 notice(if (r.success) tr("Logged in to $name", "Login em $name ok") + (if (r.isAdmin) " (admin)" else "") else tr("Login to $name refused", "Login em $name recusado"))
                 if (r.success && contactByPrefix(key)?.type == Protocol.ADV_TYPE_ROOM) scope.launch { syncMessages() }
             }
             Protocol.PUSH_STATUS_RESPONSE -> Protocol.parseRepeaterStatus(f)?.let { st ->
                 _repeaterStatus.update { it + (st.prefix.toHex() to st) }
+                endWait(st.prefix.toHex(), RemoteOp.STATUS)
+            }
+            Protocol.PUSH_TRACE_DATA -> Protocol.parseTrace(f)?.let { t ->
+                val key = pingTags.remove(t.tag) ?: return@let
+                val rtt = endWait(key, RemoteOp.PING)
+                _pings.update { it + (key to PingResult(t, rtt, System.currentTimeMillis())) }
             }
             Protocol.PUSH_PATH_DISCOVERY_RESPONSE -> Protocol.parsePathDiscovery(f)?.let { pd ->
                 _paths.update { it + (pd.prefix.toHex() to pd) }
+                endWait(pd.prefix.toHex(), RemoteOp.ROUTE)
                 val name = contactByPrefix(pd.prefix.toHex())?.name ?: pd.prefix.toHex()
                 notice(tr("Route to $name: ${Protocol.hops(pd.outLen) ?: 0} hop(s)", "Rota para $name: ${Protocol.hops(pd.outLen) ?: 0} salto(s)"))
             }
@@ -368,6 +405,7 @@ object MeshController {
             if (m.txtType == Protocol.TXT_TYPE_CLI_DATA) {
                 // Reply to a remote-admin command: goes to that node's console, not to the chat.
                 addCli(prefix.toHex(), CliLine(System.currentTimeMillis(), false, m.text.trimEnd()))
+                endWait(prefix.toHex(), RemoteOp.CLI)
                 return
             }
             conv = ConvKey.contact(prefix.toHex())
@@ -533,8 +571,15 @@ object MeshController {
     fun login(c: Contact, password: String, remember: Boolean) = scope.launch {
         prefs.edit().apply { if (remember) putString("pw_${c.keyHex}", password) else remove("pw_${c.keyHex}") }.apply()
         _logins.update { it - c.pubKey.copyOf(6).toHex() }
+        val key = c.pubKey.copyOf(6).toHex()
         val resp = requestOne(Protocol.login(c.pubKey, password))
-        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice(tr("Failed to send login", "Falha ao enviar login")) else notice(tr("Login sent…", "Login enviado…"))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) {
+            notice(tr("Failed to send login", "Falha ao enviar login"))
+            return@launch
+        }
+        beginWait(key, RemoteOp.LOGIN, resp) {
+            notice(tr("${c.name} did not answer the login", "${c.name} não respondeu ao login"))
+        }
     }
 
     fun logout(c: Contact) = scope.launch {
@@ -544,15 +589,45 @@ object MeshController {
 
     fun requestStatus(c: Contact) = scope.launch {
         val resp = requestOne(Protocol.statusRequest(c.pubKey))
-        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) notice(tr("Failed to request status", "Falha ao pedir status"))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) {
+            notice(tr("Failed to request status", "Falha ao pedir status"))
+            return@launch
+        }
+        beginWait(c.pubKey.copyOf(6).toHex(), RemoteOp.STATUS, resp) {
+            notice(tr("${c.name} did not answer the status request", "${c.name} não respondeu ao pedido de status"))
+        }
     }
 
     fun sendCli(c: Contact, command: String) = scope.launch {
         val key = c.pubKey.copyOf(6).toHex()
         addCli(key, CliLine(System.currentTimeMillis(), true, command))
+        val login = _logins.value[key]
+        if (login?.success != true || !login.isAdmin) {
+            addCli(key, info(tr(
+                "Not logged in as admin: the node only answers commands from an admin login (Login above).",
+                "Sem login de admin: o nó só responde comandos de quem entrou como admin (Login acima).",
+            )))
+        }
         val resp = requestOne(Protocol.sendText(c.pubKey, command, now(), 0, Protocol.TXT_TYPE_CLI_DATA))
-        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) addCli(key, CliLine(System.currentTimeMillis(), false, tr("(send failed)", "(falha ao enviar)")))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) {
+            addCli(key, info(tr("Send failed: the radio did not take the command.", "Falha ao enviar: o rádio não aceitou o comando.")))
+            return@launch
+        }
+        beginWait(key, RemoteOp.CLI, resp) {
+            val st = _remote.value[remoteKey(key, RemoteOp.CLI)]
+            val secs = ((st?.timeoutMs ?: 0L) / 1000).toInt()
+            val admin = _logins.value[key]?.let { it.success && it.isAdmin } == true
+            addCli(key, info(
+                if (!admin) tr("No reply in $secs s. Log in as admin and try again.", "Sem resposta em $secs s. Entre como admin e tente de novo.")
+                else tr(
+                    "No reply in $secs s. The command or its reply may have been lost on the way; check the route and try again.",
+                    "Sem resposta em $secs s. O comando ou a resposta pode ter se perdido no caminho; confira a rota e tente de novo.",
+                ),
+            ))
+        }
     }
+
+    private fun info(text: String) = CliLine(System.currentTimeMillis(), false, text, info = true)
 
     private fun addCli(key: String, line: CliLine) {
         _cli.update { m -> m + (key to ((m[key] ?: emptyList()) + line).takeLast(200)) }
@@ -566,7 +641,96 @@ object MeshController {
 
     fun discoverPath(c: Contact) = scope.launch {
         val resp = requestOne(Protocol.pathDiscovery(c.pubKey))
-        notice(if (resp != null && resp[0].toInt() == Protocol.RESP_SENT) tr("Discovering route to ${c.name}…", "Descobrindo rota para ${c.name}…") else tr("Route discovery failed", "Falha ao descobrir rota"))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) {
+            notice(tr("Route discovery failed to send", "Falha ao enviar a descoberta de rota"))
+            return@launch
+        }
+        beginWait(c.pubKey.copyOf(6).toHex(), RemoteOp.ROUTE, resp) {
+            notice(tr("${c.name} did not answer the route discovery", "${c.name} não respondeu à descoberta de rota"))
+        }
+    }
+
+    /**
+     * Ping a repeater with a trace along its known route and back: out hops, the repeater, the out hops in
+     * reverse. Each repeater on the way adds the SNR it heard the ping at. Without a known route the
+     * repeater is assumed to be in direct range.
+     */
+    fun ping(c: Contact) = scope.launch {
+        val key = c.pubKey.copyOf(6).toHex()
+        val hops = Protocol.hops(c.outPathLen) ?: 0
+        val hopSize = Protocol.hashSize(c.outPathLen)
+        // Trace hashes are 1 or 2 bytes (power of two); a longer route hash is cut to 2 bytes.
+        val traceSize = if (hops > 0 && hopSize >= 2) 2 else 1
+        val pathSz = if (traceSize == 2) 1 else 0
+        val outHops = (0 until hops).mapNotNull { h ->
+            val start = 36 + h * hopSize
+            if (start + traceSize <= c.raw.size) c.raw.copyOfRange(start, start + traceSize) else null
+        }
+        val path = (outHops + listOf(c.pubKey.copyOf(traceSize)) + outHops.reversed()).fold(ByteArray(0)) { a, b -> a + b }
+        val tag = kotlin.random.Random.nextInt()
+        val resp = requestOne(Protocol.tracePath(tag, pathSz, path))
+        if (resp == null || resp[0].toInt() != Protocol.RESP_SENT) {
+            notice(tr("Ping failed to send", "Falha ao enviar o ping"))
+            return@launch
+        }
+        pingTags[tag] = key
+        beginWait(key, RemoteOp.PING, resp) {
+            pingTags.remove(tag)
+            notice(tr("No answer to the ping from ${c.name}", "Sem resposta ao ping de ${c.name}"))
+        }
+    }
+
+    // ---- waiting for answers from remote nodes ----
+
+    fun remoteKey(prefixHex: String, op: RemoteOp) = "$prefixHex/${op.name}"
+
+    /** Marks [op] to [prefixHex] as waiting, with the node's estimate (RESP_SENT) plus a margin. */
+    private fun beginWait(prefixHex: String, op: RemoteOp, resp: ByteArray, onTimeout: () -> Unit) {
+        val estimate = Protocol.sentTimeoutMs(resp) ?: 0L
+        val timeout = (estimate + 4000L).coerceIn(8000L, 120000L)
+        val st = RemoteState(op, System.currentTimeMillis(), timeout, Protocol.sentFlood(resp))
+        val k = remoteKey(prefixHex, op)
+        _remote.update { it + (k to st) }
+        scope.launch {
+            delay(timeout)
+            var expired = false
+            _remote.update { m ->
+                if (m[k] === st) {
+                    expired = true
+                    m + (k to st.copy(waiting = false, timedOut = true))
+                } else {
+                    m
+                }
+            }
+            if (expired) onTimeout()
+        }
+    }
+
+    /** The answer to [op] arrived: returns how long it took, or null if nothing was waiting. */
+    private fun endWait(prefixHex: String, op: RemoteOp): Long? {
+        val k = remoteKey(prefixHex, op)
+        var elapsed: Long? = null
+        _remote.update { m ->
+            val st = m[k]
+            if (st == null || !st.waiting) {
+                m
+            } else {
+                elapsed = System.currentTimeMillis() - st.sentAt
+                m + (k to st.copy(waiting = false, answeredMs = elapsed))
+            }
+        }
+        return elapsed
+    }
+
+    /** Name of the contact whose key starts with [hashHex] (a route hop), or the hash itself. */
+    fun hopName(hashHex: String): String {
+        val matches = _contacts.value.filter { it.keyHex.startsWith(hashHex, ignoreCase = true) }
+        val repeaters = matches.filter { it.type == Protocol.ADV_TYPE_REPEATER }
+        return when {
+            repeaters.size == 1 -> repeaters[0].name
+            matches.size == 1 -> matches[0].name
+            else -> hashHex
+        }
     }
 
     fun usePath(c: Contact, pd: PathDiscovery) = scope.launch {

@@ -244,10 +244,39 @@ class TwoNodeMeshTest {
         b.call(Protocol.addContactByKey(selfA.pubKey, "Alice", Protocol.ADV_TYPE_CHAT), Protocol.RESP_OK)
         // Bob answers path discovery only if he shares base telemetry (battery) with everyone.
         b.call(Protocol.setOtherParams(false, 2, 0, 0), Protocol.RESP_OK)
-        a.call(Protocol.pathDiscovery(selfB.pubKey), Protocol.RESP_SENT)
+        val sent = a.call(Protocol.pathDiscovery(selfB.pubKey), Protocol.RESP_SENT)
+        // The app waits for the answer using the node's own estimate.
+        assertTrue("estimated timeout", (Protocol.sentTimeoutMs(sent) ?: 0L) > 0L)
+        assertTrue("unknown route goes by flood", Protocol.sentFlood(sent))
         val pd = Protocol.parsePathDiscovery(a.await(8000) { (it[0].toInt() and 0xFF) == Protocol.PUSH_PATH_DISCOVERY_RESPONSE })!!
         assertArrayEquals(selfB.pubKey.copyOf(6), pd.prefix)
         assertEquals(0, Protocol.hops(pd.outLen))
+    }
+
+    @Test
+    fun traceRequestIsAccepted() {
+        handshake(a, "Alice")
+        val selfB = handshake(b, "Bob")
+        // Ping as the app builds it, to a neighbour: the path is just the target's 1-byte hash.
+        val sent = a.call(Protocol.tracePath(0x12345678, 0, selfB.pubKey.copyOf(1)), Protocol.RESP_SENT)
+        assertTrue("estimated timeout", (Protocol.sentTimeoutMs(sent) ?: 0L) > 0L)
+        assertEquals(0x12345678, ByteBuffer.wrap(sent, 2, 4).order(ByteOrder.LITTLE_ENDIAN).int)
+        // 2-byte hashes (path size code 1) are accepted too.
+        a.call(Protocol.tracePath(1, 1, selfB.pubKey.copyOf(2)), Protocol.RESP_SENT)
+    }
+
+    @Test
+    fun parsesTraceData() {
+        // PUSH_TRACE_DATA: code, reserved, path_len, flags, tag, auth, 2 hashes, 2 SNRs, final SNR.
+        val f = byteArrayOf(
+            0x89.toByte(), 0, 2, 0, 0x78, 0x56, 0x34, 0x12, 0, 0, 0, 0,
+            0xA1.toByte(), 0x3F, 26, (-8).toByte(), 30,
+        )
+        val t = Protocol.parseTrace(f)!!
+        assertEquals(0x12345678, t.tag)
+        assertEquals(listOf("a1", "3f"), t.hops)
+        assertEquals(listOf(6.5f, -2.0f), t.snrs)
+        assertEquals(7.5f, t.finalSnr)
     }
 
     @Test

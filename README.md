@@ -67,13 +67,15 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
     unconfirmed message to resend it.
   - **Rooms (room servers)**: log in from the chat itself; posts show their author.
 - 👥 **Contacts**: search, filters (chat, repeater, room, sensor), sorting (recent, name, hops) and "last seen".
-  The contact screen shows the route (repeaters on the path), with **Discover route** (out and back), **Use this
-  route**, **Reset**, **QR code**, zero-hop share and remove. In "add manually" mode, heard nodes wait in
+  The contact screen shows the route (repeaters on the path), with **Discover route** (out and back, with
+  repeater names), **Ping** for repeaters (round trip and SNR at each hop), **Use this route**, **Reset**, **QR code**, zero-hop share and remove. In "add manually" mode, heard nodes wait in
   **Discovered** with an Add button.
 - 🛠️ **Remote admin** of repeaters, rooms and sensors:
   - admin or guest **login** (the password can be remembered);
   - **status**: battery, uptime, queue, packets, flood/direct, airtime, RSSI/SNR and noise;
-  - encrypted **CLI terminal**, with shortcuts (`ver`, `clock`, `neighbors`, `get radio`…).
+  - encrypted **CLI terminal**, with shortcuts (`ver`, `clock`, `neighbors`, `get radio`…);
+  - every request shows its state: **waiting** (direct or by flood, and for how long), **answered in N s**, or
+    **no answer**, with a hint (e.g. a command without an admin login gets no reply).
 - 🔳 **`meshcore://` QR codes**, compatible with the official app: show yours, a contact's or a channel's, scan them
   with the camera, or open a `meshcore://` link from another app.
 - 🗺️ **Map** of contacts with GPS, on OpenStreetMap with no API key (like MeshCoreRPI's web map), in night mode.
@@ -113,7 +115,8 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
 | Radio diagnostics (`radio-diag`) | — | ✅ | ✅ |
 | Identity backup (private key) | ✅ | — | ✅ |
 | English and Portuguese | ✅ | — | ✅ |
-| Sensor telemetry, trace path | ✅ | — | not yet |
+| Ping (trace) to a repeater, SNR per hop | ✅ | — | ✅ |
+| Sensor telemetry | ✅ | — | not yet |
 
 ## Hardware
 
@@ -282,13 +285,15 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
     tempo de ida e volta. Toque numa mensagem sem confirmação para reenviar.
   - **Salas (room servers)**: login pelo próprio chat. As mensagens aparecem com o nome do autor.
 - 👥 **Contatos**: busca, filtro (chat, repetidor, sala, sensor), ordenação (recentes, nome, saltos) e "visto há".
-  O detalhe do contato mostra a rota (repetidores do caminho) e tem os botões **Descobrir rota** (ida e volta),
-  **Usar esta rota**, **Redefinir**, **QR code**, compartilhar zero-hop e remover. No modo "adicionar manualmente",
+  O detalhe do contato mostra a rota (repetidores do caminho) e tem os botões **Descobrir rota** (ida e volta,
+  com os nomes dos repetidores), **Ping** para repetidores (ida e volta e SNR em cada salto), **Usar esta rota**, **Redefinir**, **QR code**, compartilhar zero-hop e remover. No modo "adicionar manualmente",
   os nós ouvidos ficam em **Descobertos** com o botão Adicionar.
 - 🛠️ **Administração remota** de repetidores, salas e sensores:
   - **login** de admin ou convidado (dá para lembrar a senha);
   - **status**: bateria, uptime, fila, pacotes, flood/direto, tempo no ar, RSSI/SNR e ruído;
-  - **terminal CLI** criptografado, com atalhos (`ver`, `clock`, `neighbors`, `get radio`…).
+  - **terminal CLI** criptografado, com atalhos (`ver`, `clock`, `neighbors`, `get radio`…);
+  - cada pedido mostra em que pé está: **aguardando** (direto ou por flood, e por quanto tempo), **respondeu em
+    N s** ou **sem resposta**, com uma dica (por exemplo, comando sem login de admin não recebe resposta).
 - 🔳 **QR codes `meshcore://`**, compatíveis com o app oficial: mostre o seu, o de um contato ou o de um canal.
   Escaneie com a câmera, ou abra um link `meshcore://` vindo de outro app.
 - 🗺️ **Mapa** dos contatos com GPS, em OpenStreetMap sem chave de API (como o mapa web do MeshCoreRPI), em modo
@@ -330,7 +335,8 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
 | Diagnóstico do rádio (`radio-diag`) | — | ✅ | ✅ |
 | Backup da identidade (chave privada) | ✅ | — | ✅ |
 | Inglês e português | ✅ | — | ✅ |
-| Telemetria de sensores, trace path | ✅ | — | ainda não |
+| Ping (trace) até um repetidor, SNR por salto | ✅ | — | ✅ |
+| Telemetria de sensores | ✅ | — | ainda não |
 
 ## Hardware
 

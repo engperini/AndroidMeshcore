@@ -32,6 +32,7 @@ object Protocol {
     const val CMD_SEND_LOGIN = 26
     const val CMD_SEND_STATUS_REQ = 27
     const val CMD_LOGOUT = 29
+    const val CMD_SEND_TRACE_PATH = 36
     const val CMD_GET_CHANNEL = 31
     const val CMD_SET_CHANNEL = 32
     const val CMD_SET_OTHER_PARAMS = 38
@@ -69,6 +70,7 @@ object Protocol {
     const val PUSH_LOGIN_FAIL = 0x86
     const val PUSH_STATUS_RESPONSE = 0x87
     const val PUSH_LOG_RX_DATA = 0x88
+    const val PUSH_TRACE_DATA = 0x89
     const val PUSH_NEW_ADVERT = 0x8A
     const val PUSH_PATH_DISCOVERY_RESPONSE = 0x8D
     const val PUSH_CONTACT_DELETED = 0x8F
@@ -193,6 +195,37 @@ object Protocol {
     fun statusRequest(pubKey: ByteArray) = byteArrayOf(CMD_SEND_STATUS_REQ.toByte()) + pubKey
 
     fun pathDiscovery(pubKey: ByteArray) = byteArrayOf(CMD_SEND_PATH_DISCOVERY_REQ.toByte(), 0) + pubKey
+
+    /**
+     * Trace ("ping"): a direct packet that follows [path] (hop hashes of 1 << [pathSz] bytes each); every
+     * repeater on it adds the SNR it heard it at. The answer is PUSH_TRACE_DATA with the same [tag].
+     */
+    fun tracePath(tag: Int, pathSz: Int, path: ByteArray): ByteArray {
+        val b = ByteBuffer.allocate(10 + path.size).order(ByteOrder.LITTLE_ENDIAN)
+        b.put(CMD_SEND_TRACE_PATH.toByte()).putInt(tag).putInt(0).put((pathSz and 0x03).toByte()).put(path)
+        return b.array()
+    }
+
+    /** RESP_SENT: how long the node expects the answer to take, in ms. */
+    fun sentTimeoutMs(f: ByteArray): Long? =
+        if (f.size >= 10 && f[0].toInt() == RESP_SENT) le(f, 0).getInt(6).toLong() and 0xFFFFFFFFL else null
+
+    /** RESP_SENT: the request went out by flood (the route was unknown). */
+    fun sentFlood(f: ByteArray): Boolean = f.size >= 2 && f[0].toInt() == RESP_SENT && f[1].toInt() == 1
+
+    /** PUSH_TRACE_DATA: the hops the trace went through and the SNR each one heard it at. */
+    fun parseTrace(f: ByteArray): TraceResult? {
+        if (f.size < 12) return null
+        val pathLen = f[2].toInt() and 0xFF
+        val flags = f[3].toInt() and 0xFF
+        val sz = 1 shl (flags and 0x03)
+        val hops = pathLen / sz
+        if (f.size < 12 + pathLen + hops + 1) return null
+        val tag = le(f, 0).getInt(4)
+        val hashes = (0 until hops).map { h -> f.copyOfRange(12 + h * sz, 12 + (h + 1) * sz).toHex() }
+        val snrs = (0 until hops).map { h -> f[12 + pathLen + h] / 4.0f }
+        return TraceResult(tag, hashes, snrs, f[12 + pathLen + hops] / 4.0f)
+    }
 
     fun getStats(type: Int) = byteArrayOf(CMD_GET_STATS.toByte(), type.toByte())
 
@@ -520,6 +553,9 @@ data class RepeaterStatus(
     val recvDirect: Long,
     val lastSnr: Float,
 )
+
+/** A trace ("ping"): [hops] are the hop hashes in order, [snrs] the SNR each heard it at, [finalSnr] ours. */
+data class TraceResult(val tag: Int, val hops: List<String>, val snrs: List<Float>, val finalSnr: Float)
 
 data class PathDiscovery(val prefix: ByteArray, val outLen: Int, val outPath: ByteArray, val inLen: Int, val inPath: ByteArray)
 
