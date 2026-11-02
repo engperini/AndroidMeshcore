@@ -6,6 +6,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a release with this tag (e.g. v0.2.0); empty = build only"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -21,6 +26,20 @@ jobs:
       - name: Set monotonically increasing APK version
         shell: bash
         run: echo "MESHCORE_VERSION_CODE=$((1000 + $(git rev-list --count HEAD)))" >> "$GITHUB_ENV"
+
+      # A release tag (pushed, or given to a manual run) also names the version: v0.2.0 -> 0.2.0.
+      - name: Release tag
+        shell: bash
+        env:
+          INPUT_RELEASE: ${{ github.event.inputs.release }}
+        run: |
+          tag="$INPUT_RELEASE"
+          if [[ -z "$tag" && "$GITHUB_REF" == refs/tags/v* ]]; then tag="${GITHUB_REF#refs/tags/}"; fi
+          if [[ -n "$tag" ]]; then
+            [[ "$tag" =~ ^v[0-9]+(\.[0-9]+)*([-.][0-9A-Za-z.]+)?$ ]] || { echo "bad release tag: $tag" >&2; exit 1; }
+            echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+            echo "MESHCORE_VERSION_NAME=${tag#v}" >> "$GITHUB_ENV"
+          fi
 
       - uses: actions/setup-java@v4
         with:
@@ -73,8 +92,13 @@ jobs:
           name: MeshCoreUSB-apk
           path: MeshCoreUSB.apk
 
-      - name: Attach APK to release
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Creates the tag on this commit when the run was started by hand with a release tag.
+      - name: Publish release
+        if: env.RELEASE_TAG != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: MeshCore USB ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
           files: MeshCoreUSB.apk
