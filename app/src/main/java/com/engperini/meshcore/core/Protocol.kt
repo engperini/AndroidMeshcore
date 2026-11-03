@@ -76,6 +76,8 @@ object Protocol {
     const val PUSH_CONTACT_DELETED = 0x8F
     const val PUSH_CONTACTS_FULL = 0x90
 
+    const val PAYLOAD_TYPE_GRP_TXT = 5
+
     const val TXT_TYPE_PLAIN = 0
     const val TXT_TYPE_CLI_DATA = 1
     const val TXT_TYPE_SIGNED_PLAIN = 2
@@ -410,6 +412,45 @@ object Protocol {
         return PathDiscovery(f.copyOfRange(2, 8), outLen, outPath, inLen, inPath)
     }
 
+    /** A mesh packet as the radio heard it (PUSH_LOG_RX_DATA carries these bytes after snr and rssi). */
+    fun parseMeshPacket(raw: ByteArray): MeshPacket? {
+        if (raw.size < 2) return null
+        var i = 0
+        val header = raw[i++].toInt() and 0xFF
+        val route = header and 0x03
+        if (route == 0 || route == 3) i += 4   // transport codes
+        if (i >= raw.size) return null
+        val pathLen = raw[i++].toInt() and 0xFF
+        val pathBytes = (pathLen and 63) * hashSize(pathLen)
+        if (i + pathBytes >= raw.size) return null
+        val path = raw.copyOfRange(i, i + pathBytes)
+        i += pathBytes
+        return MeshPacket(route, (header shr 2) and 0x0F, pathLen, path, raw.copyOfRange(i, raw.size))
+    }
+
+    /**
+     * Decrypts a GRP_TXT payload (channel hash, 2-byte MAC, AES-128 blocks) with a channel secret, as
+     * MeshCore's Utils::MACThenDecrypt does. Returns the sender timestamp and the "sender: text" string, or
+     * null if the MAC says it is not this channel.
+     */
+    fun decryptGroupText(secret: ByteArray, payload: ByteArray): Pair<Long, String>? {
+        if (secret.size < 16 || payload.size < 3 + 16 || (payload.size - 3) % 16 != 0) return null
+        val cipher = payload.copyOfRange(3, payload.size)
+        val hmacKey = secret.copyOf(32)   // the node keeps channel secrets in a 32-byte buffer
+        val mac = javax.crypto.Mac.getInstance("HmacSHA256").apply {
+            init(javax.crypto.spec.SecretKeySpec(hmacKey, "HmacSHA256"))
+        }.doFinal(cipher)
+        if (mac[0] != payload[1] || mac[1] != payload[2]) return null
+        val plain = javax.crypto.Cipher.getInstance("AES/ECB/NoPadding").apply {
+            init(javax.crypto.Cipher.DECRYPT_MODE, javax.crypto.spec.SecretKeySpec(secret.copyOf(16), "AES"))
+        }.doFinal(cipher)
+        if (plain.size < 5) return null
+        val ts = le(plain, 0).getInt(0).toLong() and 0xFFFFFFFFL
+        var end = 5
+        while (end < plain.size && plain[end].toInt() != 0) end++
+        return ts to String(plain, 5, end - 5, Charsets.UTF_8)
+    }
+
     /** RESP_STATS of the local node (core, radio or packets). */
     fun parseStats(f: ByteArray, into: NodeStats): NodeStats {
         if (f.size < 2) return into
@@ -553,6 +594,9 @@ data class RepeaterStatus(
     val recvDirect: Long,
     val lastSnr: Float,
 )
+
+/** A raw mesh packet: route type, payload type (5 = GRP_TXT), encoded path length, path hashes and payload. */
+data class MeshPacket(val routeType: Int, val payloadType: Int, val pathLen: Int, val path: ByteArray, val payload: ByteArray)
 
 /** A trace ("ping"): [hops] are the hop hashes in order, [snrs] the SNR each heard it at, [finalSnr] ours. */
 data class TraceResult(val tag: Int, val hops: List<String>, val snrs: List<Float>, val finalSnr: Float)

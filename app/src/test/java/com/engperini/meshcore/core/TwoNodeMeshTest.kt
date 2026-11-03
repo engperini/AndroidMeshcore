@@ -254,6 +254,25 @@ class TwoNodeMeshTest {
     }
 
     @Test
+    fun channelPacketDecryptsToSentText() {
+        handshake(a, "Alice")
+        handshake(b, "Bob")
+        val pub = Protocol.parseChannel(a.call(Protocol.getChannel(0), Protocol.RESP_CHANNEL_INFO))!!
+        val ts = System.currentTimeMillis() / 1000
+        a.call(Protocol.sendChannelText(0, "contando repetidoras", ts), Protocol.RESP_OK)
+        // Bob's radio reports the raw packet; the app decrypts it with the channel key, as it does to
+        // recognise repeats of its own messages.
+        val log = b.await(8000) { (it[0].toInt() and 0xFF) == Protocol.PUSH_LOG_RX_DATA }
+        val pkt = Protocol.parseMeshPacket(log.copyOfRange(3, log.size))!!
+        assertEquals(Protocol.PAYLOAD_TYPE_GRP_TXT, pkt.payloadType)
+        val (sentTs, text) = Protocol.decryptGroupText(pub.secret, pkt.payload)!!
+        assertEquals(ts, sentTs)
+        assertEquals("Alice: contando repetidoras", text)
+        // Another channel's key does not match.
+        assertEquals(null, Protocol.decryptGroupText(Protocol.hashtagSecret("#outro"), pkt.payload))
+    }
+
+    @Test
     fun traceRequestIsAccepted() {
         handshake(a, "Alice")
         val selfB = handshake(b, "Bob")

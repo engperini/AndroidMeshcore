@@ -373,6 +373,7 @@ object MeshController {
         }
         val entry = PacketLogEntry(System.currentTimeMillis(), f[1] / 4.0f, f[2].toInt(), f.size - 3, route, type)
         _packetLog.update { (listOf(entry) + it).take(200) }
+        checkRepeat(f.copyOfRange(3, f.size))
     }
 
     suspend fun syncMessages() = syncMutex.withLock {
@@ -490,12 +491,41 @@ object MeshController {
     }
 
     fun sendChannel(channel: Channel, text: String) {
-        val id = store.insert(ConvKey.channel(channel.secretHex), true, _self.value?.name ?: "eu", text, now(), MsgStatus.SENDING)
+        val ts = now()   // the same timestamp goes into the packet and the history, so repeats can be matched
+        val name = _self.value?.name ?: "eu"
+        val id = store.insert(ConvKey.channel(channel.secretHex), true, name, text, ts, MsgStatus.SENDING)
         bump()
         scope.launch {
-            val ok = ok(requestOne(Protocol.sendChannelText(channel.index, text, now())))
+            val ok = ok(requestOne(Protocol.sendChannelText(channel.index, text, ts)))
             store.setStatus(id, if (ok) MsgStatus.SENT else MsgStatus.FAILED)
+            if (ok) {
+                val cutoff = System.currentTimeMillis() - 30 * 60_000L
+                sentChannel.entries.removeIf { it.value.second < cutoff }
+                sentChannel["${channel.secretHex}|$ts|$name: $text"] = id to System.currentTimeMillis()
+            }
             bump()
+        }
+    }
+
+    /** Channel messages sent in the last 30 minutes, by "secret|timestamp|sender: text", to spot their repeats. */
+    private val sentChannel = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Long>>()
+
+    /**
+     * A repeater re-flooding one of our channel messages is heard as a GRP_TXT packet with the same encrypted
+     * content and the repeater's hash at the end of the path. Decrypting it with the channel key tells whose
+     * message it is.
+     */
+    private fun checkRepeat(raw: ByteArray) {
+        if (sentChannel.isEmpty()) return
+        val pkt = Protocol.parseMeshPacket(raw) ?: return
+        if (pkt.payloadType != Protocol.PAYLOAD_TYPE_GRP_TXT) return
+        val repeater = Protocol.pathHops(pkt.pathLen, pkt.path).lastOrNull() ?: return
+        for (ch in _channels.value) {
+            if (ch.isEmpty) continue
+            val (ts, text) = Protocol.decryptGroupText(ch.secret, pkt.payload) ?: continue
+            val sent = sentChannel["${ch.secretHex}|$ts|$text"] ?: return
+            if (store.addRepeat(sent.first, repeater)) bump()
+            return
         }
     }
 

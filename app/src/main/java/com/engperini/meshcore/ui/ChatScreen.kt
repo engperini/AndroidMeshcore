@@ -66,6 +66,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
     val messages = remember(version, conv.key) { MeshController.messages.messages(conv.key) }
     var input by rememberSaveable { mutableStateOf("") }
     var confirmClear by remember { mutableStateOf(false) }
+    var heardBy by remember { mutableStateOf<Message?>(null) }
     val listState = rememberLazyListState()
 
     val channel = channels.firstOrNull { conv.isChannel && it.index == conv.channelIndex }
@@ -122,6 +123,8 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
                 Bubble(m, showSender = conv.isChannel || isRoom) {
                     if (!conv.isChannel && m.outgoing && m.status == MsgStatus.FAILED) {
                         MeshController.retryDirect(m.id, conv.prefixHex, m.text, m.timestamp)
+                    } else if (m.outgoing && m.repeaters.isNotEmpty()) {
+                        heardBy = m
                     }
                 }
             }
@@ -152,6 +155,27 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
                 },
             ) { Icon(Icons.AutoMirrored.Filled.Send, tr("Send", "Enviar")) }
         }
+    }
+
+    heardBy?.let { m ->
+        AlertDialog(
+            onDismissRequest = { heardBy = null },
+            containerColor = Mesh.SURFACE_2,
+            title = { Text(repeatersLabel(m.repeaters.size)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Muted(
+                        tr("Repeaters your radio heard passing this message on:", "Repetidoras que o seu rádio ouviu repassando esta mensagem:"),
+                        size = 12,
+                    )
+                    m.repeaters.forEach { h ->
+                        val name = MeshController.hopName(h)
+                        Text(if (name == h) h else "$name ($h)", color = Mesh.TEXT, fontSize = 14.sp)
+                    }
+                }
+            },
+            confirmButton = { Pill("OK", style = PillStyle.TEXT) { heardBy = null } },
+        )
     }
 
     if (confirmClear) {
@@ -198,10 +222,12 @@ fun Bubble(m: Message, showSender: Boolean, onClick: () -> Unit) {
                             MsgStatus.RECEIVED -> ""
                         },
                     )
+                    if (m.repeaters.isNotEmpty()) add(repeatersLabel(m.repeaters.size))
                 }
             }
             val color = when {
                 m.outgoing && m.status == MsgStatus.DELIVERED -> Mesh.GREEN
+                m.outgoing && m.repeaters.isNotEmpty() -> Mesh.GREEN
                 m.outgoing && m.status == MsgStatus.FAILED -> Mesh.RED
                 else -> Mesh.MUTED
             }
@@ -209,3 +235,7 @@ fun Bubble(m: Message, showSender: Boolean, onClick: () -> Unit) {
         }
     }
 }
+
+/** "heard by 3 repeaters" */
+fun repeatersLabel(n: Int): String =
+    tr(if (n == 1) "heard by 1 repeater" else "heard by $n repeaters", if (n == 1) "ouvida por 1 repetidora" else "ouvida por $n repetidoras")

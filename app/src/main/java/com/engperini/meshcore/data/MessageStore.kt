@@ -31,12 +31,14 @@ data class Message(
     val snr: Float?,
     val hops: Int?,
     val roundTripMs: Long,
+    /** Channel messages we sent: the repeaters (last-hop hash, hex) heard repeating them. */
+    val repeaters: List<String> = emptyList(),
 )
 
 data class ConversationSummary(val conv: String, val lastText: String, val lastSender: String, val lastTime: Long, val unread: Int)
 
 /** Message history, kept on the phone (the node itself only queues unread messages). */
-class MessageStore(context: Context) : SQLiteOpenHelper(context, "messages.db", null, 1) {
+class MessageStore(context: Context) : SQLiteOpenHelper(context, "messages.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -52,14 +54,31 @@ class MessageStore(context: Context) : SQLiteOpenHelper(context, "messages.db", 
                 snr REAL,
                 hops INTEGER,
                 rtt INTEGER NOT NULL DEFAULT 0,
-                unread INTEGER NOT NULL DEFAULT 0
+                unread INTEGER NOT NULL DEFAULT 0,
+                repeaters TEXT NOT NULL DEFAULT ''
             )""",
         )
         db.execSQL("CREATE INDEX idx_conv ON messages(conv, id)")
         db.execSQL("CREATE INDEX idx_ack ON messages(ack)")
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    // Upgrades keep every stored message.
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) db.execSQL("ALTER TABLE messages ADD COLUMN repeaters TEXT NOT NULL DEFAULT ''")
+    }
+
+    /** Records that [repeater] was heard repeating message [id]. Returns true if it is a new repeater. */
+    fun addRepeat(id: Long, repeater: String): Boolean {
+        val current = readableDatabase.rawQuery("SELECT repeaters FROM messages WHERE id=?", arrayOf(id.toString()))
+            .use { if (it.moveToFirst()) it.getString(0) else return false }
+        val list = current.split(',').filter { it.isNotEmpty() }
+        if (repeater in list) return false
+        writableDatabase.update(
+            "messages", ContentValues().apply { put("repeaters", (list + repeater).joinToString(",")) },
+            "id=?", arrayOf(id.toString()),
+        )
+        return true
+    }
 
     fun insert(
         conv: String, outgoing: Boolean, sender: String, text: String, timestamp: Long, status: MsgStatus,
@@ -134,6 +153,7 @@ class MessageStore(context: Context) : SQLiteOpenHelper(context, "messages.db", 
                             snr = c.getColumnIndexOrThrow("snr").let { if (c.isNull(it)) null else c.getFloat(it) },
                             hops = c.getColumnIndexOrThrow("hops").let { if (c.isNull(it)) null else c.getInt(it) },
                             roundTripMs = c.getLong(c.getColumnIndexOrThrow("rtt")),
+                            repeaters = c.getString(c.getColumnIndexOrThrow("repeaters")).split(',').filter { it.isNotEmpty() },
                         ),
                     )
                 }

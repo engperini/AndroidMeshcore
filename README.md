@@ -62,7 +62,8 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
 - 💬 **Chats**: group channels and direct messages in one list, with unread counts and the last message.
   - **Channels**: *Public* comes preconfigured. Create a **#hashtag** channel (everyone using the same `#name` joins
     the same chat), a **new private** channel (random key) or join one **with a key**. To share, long-press the
-    channel → **QR code**.
+    channel → **QR code**. Your channel messages show **how many repeaters were heard repeating them** (tap to see
+    which).
   - **Direct messages**: *sending → sent → delivered ✓✓* from the recipient's ACK, with the round-trip time. Tap an
     unconfirmed message to resend it.
   - **Rooms (room servers)**: log in from the chat itself; posts show their author.
@@ -291,7 +292,8 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
 - 💬 **Conversas**: canais em grupo e mensagens diretas numa lista só, com não lidas e a última mensagem.
   - **Canais**: o *Public* já vem configurado. Você pode criar **#hashtag** (todos que usam o mesmo `#nome` entram
     na mesma conversa), canal **privado novo** (chave aleatória) ou entrar num canal **com chave**. Para compartilhar,
-    toque e segure o canal → **QR code**.
+    toque e segure o canal → **QR code**. Suas mensagens no canal mostram **quantas repetidoras foram ouvidas
+    repassando** (toque para ver quais).
   - **Mensagens diretas**: status *enviando → enviado → entregue ✓✓* pela confirmação (ACK) do destinatário, com o
     tempo de ida e volta. Toque numa mensagem sem confirmação para reenviar.
   - **Salas (room servers)**: login pelo próprio chat. As mensagens aparecem com o nome do autor.
