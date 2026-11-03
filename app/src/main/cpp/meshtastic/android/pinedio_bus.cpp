@@ -8,6 +8,7 @@
 
 #include "libpinedio-usb.h"
 #include "mt_bus.h"
+#include "mt_glue.h"
 
 #include <cstring>
 #include <exception>
@@ -18,6 +19,7 @@ namespace {
 std::mutex g_mutex;
 RadioUsbBus* g_bus = nullptr;
 bool g_logical_pins = false;   // XIAO bridge: logical pin ids instead of CH341 D-lines
+pinedio_inst* g_irq_inst = nullptr; // the instance whose interrupts mt_poll_irqs() emulates
 
 // CH341 D-line -> XIAO bridge logical pin (NSS 0, RESET 1, BUSY 2, DIO1 3, RXEN 4, TXEN 5); -1 = none.
 int mapPin(uint32_t pin)
@@ -151,6 +153,7 @@ int32_t pinedio_attach_interrupt(struct pinedio_inst* inst, enum pinedio_int_pin
     inst->interrupts[int_pin].previous_state = 255;
     inst->interrupts[int_pin].mode = int_mode;
     inst->interrupts[int_pin].callback = callback;
+    g_irq_inst = inst;
     return 0;
 }
 
@@ -162,3 +165,28 @@ int32_t pinedio_deattach_interrupt(struct pinedio_inst* inst, enum pinedio_int_p
 }
 
 } // extern "C"
+
+// USB bridges have no interrupt line to the phone: the IRQ pins are read while the firmware idles, and the
+// callback runs on a rising edge (or a line already high when attached), as the radio's ISR would.
+bool mt_poll_irqs()
+{
+    pinedio_inst* inst = g_irq_inst;
+    if (!inst) return false;
+    bool fired = false;
+    for (int i = 0; i < PINEDIO_INT_PIN_MAX; i++) {
+        pinedio_inst_int& irq = inst->interrupts[i];
+        void (*cb)(void) = irq.callback;
+        if (!cb) continue;
+        const int32_t v = pinedio_digital_read(inst, static_cast<uint32_t>(i));
+        if (v < 0) continue;
+        const uint8_t prev = irq.previous_state;
+        irq.previous_state = static_cast<uint8_t>(v);
+        const bool rising = v == 1 && prev != 1;
+        const bool falling = v == 0 && prev == 1;
+        if ((rising && (irq.mode & PINEDIO_INT_MODE_RISING)) || (falling && (irq.mode & PINEDIO_INT_MODE_FALLING))) {
+            cb();
+            fired = true;
+        }
+    }
+    return fired;
+}

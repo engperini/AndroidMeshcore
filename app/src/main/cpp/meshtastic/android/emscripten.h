@@ -7,9 +7,10 @@
 
 #define EMSCRIPTEN_KEEPALIVE __attribute__((used))
 
-// The firmware's loop "suspends" through this between radio polls; on Android the loop runs on its
-// own thread, so it simply sleeps.
+// The firmware's loop idles through this between radio polls (capped at 50 ms by main.cpp). On Android it
+// waits on the radio thread, polling the radio's IRQ line and waking early for the app (mt_glue.cpp).
+void mt_idle(unsigned int ms);
 static inline void emscripten_sleep(unsigned int ms)
 {
-    usleep(ms * 1000);
+    mt_idle(ms);
 }

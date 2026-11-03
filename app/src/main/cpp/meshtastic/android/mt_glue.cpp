@@ -17,6 +17,9 @@
 #include "RadioInterface.h"
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -162,6 +165,38 @@ size_t mt_api_from_radio(uint8_t* out, size_t max)
     AppPhoneAPI* p = phone();
     if (!p || max < 512 || !p->available()) return 0;
     return p->getFromRadio(out);
+}
+
+// ---- idle wait of the firmware loop
+namespace {
+std::mutex g_idle_mutex;
+std::condition_variable g_idle_cv;
+bool g_wake_flag = false;
+constexpr auto IRQ_POLL = std::chrono::milliseconds(4);
+}
+
+void mt_wake()
+{
+    {
+        std::lock_guard<std::mutex> lock(g_idle_mutex);
+        g_wake_flag = true;
+    }
+    g_idle_cv.notify_all();
+}
+
+void mt_idle(unsigned int ms)
+{
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    for (;;) {
+        if (mt_poll_irqs()) return;
+        std::unique_lock<std::mutex> lock(g_idle_mutex);
+        const auto now = std::chrono::steady_clock::now();
+        if (g_wake_flag || now >= end) {
+            g_wake_flag = false;
+            return;
+        }
+        g_idle_cv.wait_until(lock, std::min(end, now + IRQ_POLL), [] { return g_wake_flag; });
+    }
 }
 
 // ---- framework symbols the excluded linux/LinuxCommon.cpp would provide

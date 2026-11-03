@@ -13,6 +13,14 @@ bool mt_take_reboot_request();
 bool mt_use_simradio();
 
 int mt_set_region(int region);
+
+// Idle wait of the firmware loop (see emscripten.h): returns after [ms], when the radio raises its IRQ line,
+// or when mt_wake() is called (the app queued a request).
+void mt_idle(unsigned int ms);
+void mt_wake();
+
+// Polls the attached radio interrupts (pinedio_bus.cpp); true if one fired.
+bool mt_poll_irqs();
 bool mt_api_to_radio(const uint8_t* buf, size_t len);
 size_t mt_api_from_radio(uint8_t* out, size_t max);
 

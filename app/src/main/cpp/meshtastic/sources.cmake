@@ -3,7 +3,7 @@
 # portduino firmware with the browser/WASM guards (ARCH_PORTDUINO_WASM), which already leave out the
 # Linux host services. Android code replaces the WASM glue (meshtastic/android/).
 #
-# Input: MT_DIR = this directory. Output: MT_SOURCES, MT_INCLUDES, MT_IDIRAFTER, MT_DEFINES.
+# Input: MT_DIR = this directory. Output: MT_SOURCES, MT_GLUE, MT_INCLUDES, MT_IDIRAFTER, MT_DEFINES.
 
 set(MT_V ${MT_DIR}/vendor)
 set(FW ${MT_V}/firmware/src)
@@ -54,6 +54,9 @@ file(GLOB MT_LIBS_MORE ${MT_V}/lib/OneButton/src/*.cpp ${MT_V}/lib/TinyGPSPlus/s
 
 set(MT_SOURCES ${MT_FW_TOP} ${MT_FW_MESH} ${MT_FW_GEN} ${MT_FW_MISC} ${MT_FW_MODULES} ${MT_CORE}
   ${MT_RADIOLIB} ${MT_CRYPTO} ${MT_NANOPB} ${MT_LIBS_SMALL} ${MT_LIBS_MORE})
+
+# Glue shared by the app and the PC test (the app adds mt_jni.cpp and its USB bridges).
+set(MT_GLUE ${MT_DIR}/android/mt_glue.cpp ${MT_DIR}/android/pinedio_bus.cpp ${MT_DIR}/android/mt_api.cpp)
 
 # Android/PC glue first: its emscripten.h shim and libpinedio-usb.h win over anything else.
 set(MT_INCLUDES

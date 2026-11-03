@@ -1,0 +1,42 @@
+name: Meshtastic engine
+
+# Fast check of the Meshtastic port: the PC host test (SimRadio) and an NDK build of libmeshtastic.so alone.
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "app/src/main/cpp/meshtastic/**"
+      - "app/src/main/cpp/android/Ch341Bridge.*"
+      - "app/src/main/cpp/android/XiaoBridge.*"
+      - "app/src/main/cpp/CMakeLists.txt"
+      - "tools/meshtastic/**"
+      - ".github/workflows/meshtastic.yml"
+  workflow_dispatch:
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: sudo apt-get install -y ninja-build >/dev/null
+
+      - name: PC host test (boots the node on SimRadio and drives it like the app)
+        run: tools/meshtastic/hosttest/build.sh
+
+      - name: NDK build of libmeshtastic.so (arm64-v8a)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ndk="$ANDROID_HOME/ndk/27.2.12479018"
+          [[ -d "$ndk" ]] || yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" >/dev/null
+          cmake -S app/src/main/cpp -B build-mt -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$ndk/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=26
+          set +e
+          cmake --build build-mt --target meshtastic -- -k 0 > ndk.log 2>&1
+          code=$?
+          grep -E "error:|undefined (reference|symbol)" ndk.log | sort | uniq -c | sort -rn | head -80
+          tail -20 ndk.log
+          ls -la build-mt/libmeshtastic.so 2>/dev/null
+          exit $code

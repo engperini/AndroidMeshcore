@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(meshcore_android CXX C)
 
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -69,3 +70,23 @@ target_compile_definitions(meshcore PRIVATE
 
 target_compile_options(meshcore PRIVATE -Wno-unused-parameter -Wno-sign-compare -fexceptions)
 target_link_libraries(meshcore log)
+
+# ---- Meshtastic engine (GPL-3.0, vendored firmware in meshtastic/vendor): its own library, loaded only in
+# the app's ":meshtastic" process (MtEngineService). Symbols stay private so the two firmwares never mix.
+set(MT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/meshtastic)
+include(${MT_DIR}/sources.cmake)
+
+add_library(meshtastic SHARED
+  ${MT_SOURCES}
+  ${MT_GLUE}
+  ${MT_DIR}/android/mt_jni.cpp
+  ${AND}/Ch341Bridge.cpp
+  ${AND}/XiaoBridge.cpp
+)
+set_target_properties(meshtastic PROPERTIES CXX_STANDARD 20 C_STANDARD 17)
+target_include_directories(meshtastic PRIVATE ${MT_INCLUDES} ${AND})
+target_compile_definitions(meshtastic PRIVATE ${MT_DEFINES})
+target_compile_options(meshtastic PRIVATE ${MT_OPTIONS} -fvisibility=hidden -fvisibility-inlines-hidden
+  -ffunction-sections -fdata-sections)
+target_link_options(meshtastic PRIVATE -Wl,--exclude-libs,ALL -Wl,-Bsymbolic -Wl,--gc-sections)
+target_link_libraries(meshtastic log)

@@ -20,11 +20,7 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
-        externalNativeBuild {
-            cmake {
-                cppFlags += "-std=c++17"
-            }
-        }
+        // C++ standards are set per library in CMakeLists.txt (MeshCore C++17, Meshtastic C++20).
     }
 
     // Public, test-only key committed to the repo on purpose (as in MeshSDR):
