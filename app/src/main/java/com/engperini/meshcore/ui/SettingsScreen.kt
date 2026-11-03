@@ -51,8 +51,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.engperini.meshcore.BuildConfig
 import com.engperini.meshcore.core.LinkState
+import com.engperini.meshcore.core.LoraController
 import com.engperini.meshcore.core.MeshController
 import com.engperini.meshcore.core.Protocol
+import com.engperini.meshcore.core.RadioMode
 import com.engperini.meshcore.core.hexToBytes
 import com.engperini.meshcore.core.toHex
 import com.engperini.meshcore.service.MeshService
@@ -84,9 +86,14 @@ fun regionOf(freqKhz: Int, bwHz: Int, sf: Int, cr: Int): Region? = REGIONS.first
 @Composable
 fun SettingsScreen(onConnect: () -> Unit) {
     val link by MeshController.link.collectAsState()
+    val mode by LoraController.mode.collectAsState()
     val running = link.state == LinkState.RUNNING
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (running) {
+        item { ModeCard() }
+        if (mode == RadioMode.LORA) {
+            // Generic LoRa: parameters can be set before the radio is connected.
+            item { LoraRadioCard() }
+        } else if (running) {
             item { RadioCard() }
             item { IdentityCard() }
             item { AdvertCard() }

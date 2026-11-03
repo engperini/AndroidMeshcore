@@ -140,7 +140,7 @@ private fun DiagCard(diag: String) {
 }
 
 @Composable
-private fun Legend(text: String, color: Color) {
+internal fun Legend(text: String, color: Color) {
     Row {
         Box(Modifier.padding(top = 5.dp).width(12.dp).height(3.dp).background(color))
         Text(" $text", color = Mesh.MUTED, fontSize = 11.sp)
@@ -163,7 +163,7 @@ private fun Bar(label: String, n: Int, max: Int) {
 
 /** Small multi-series line chart, each series scaled to its own range. */
 @Composable
-private fun LineChart(series: List<Pair<List<Float>, Color>>) {
+internal fun LineChart(series: List<Pair<List<Float>, Color>>) {
     Canvas(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(12.dp)).background(Mesh.BG.copy(alpha = 0.6f))) {
         val pad = 8.dp.toPx()
         for (g in 1..3) {

@@ -55,7 +55,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.engperini.meshcore.core.LinkState
+import com.engperini.meshcore.core.LoraController
 import com.engperini.meshcore.core.MeshController
+import com.engperini.meshcore.core.RadioMode
 import com.engperini.meshcore.core.MeshLink
 import com.engperini.meshcore.core.toHex
 import java.text.SimpleDateFormat
@@ -73,6 +75,15 @@ enum class Tab(private val en: String, private val pt: String, val icon: ImageVe
     SETTINGS("Settings", "Config", Icons.Default.Settings);
 
     val label: String get() = tr(en, pt)
+
+    /** Tab title in a given mode: in generic LoRa mode the chats tab is the packet terminal. */
+    fun label(mode: RadioMode): String = if (this == CHATS && mode == RadioMode.LORA) "LoRa" else label
+}
+
+/** Tabs shown in each mode. Contacts and the map belong to the mesh protocols. */
+fun tabsFor(mode: RadioMode): List<Tab> = when (mode) {
+    RadioMode.MESHCORE -> Tab.entries
+    RadioMode.LORA -> listOf(Tab.CHATS, Tab.SETTINGS)
 }
 
 /** Screens above the tabs. */
@@ -123,8 +134,11 @@ fun App(onConnect: () -> Unit, incomingLink: MeshLink?, onLinkHandled: () -> Uni
 }
 
 @Composable
-internal fun Home(tab: Tab, onTab: (Tab) -> Unit, nav: Nav, onConnect: () -> Unit) {
+internal fun Home(tabSelected: Tab, onTab: (Tab) -> Unit, nav: Nav, onConnect: () -> Unit) {
     val link by MeshController.link.collectAsState()
+    val mode by LoraController.mode.collectAsState()
+    val tabs = tabsFor(mode)
+    val tab = if (tabSelected in tabs) tabSelected else Tab.CHATS
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Header(onConnect)
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -133,7 +147,7 @@ internal fun Home(tab: Tab, onTab: (Tab) -> Unit, nav: Nav, onConnect: () -> Uni
                 ConnectPanel(link.state, link.message, onConnect)
             } else {
                 when (tab) {
-                    Tab.CHATS -> ChatsScreen(nav)
+                    Tab.CHATS -> if (mode == RadioMode.LORA) LoraScreen() else ChatsScreen(nav)
                     Tab.CONTACTS -> ContactsScreen(nav)
                     Tab.MAP -> MapScreen(nav)
                     Tab.NETWORK -> NetworkScreen()
@@ -141,7 +155,7 @@ internal fun Home(tab: Tab, onTab: (Tab) -> Unit, nav: Nav, onConnect: () -> Uni
                 }
             }
         }
-        BottomBar(tab, onTab)
+        BottomBar(tab, tabs, mode, onTab)
     }
 }
 
@@ -151,6 +165,8 @@ fun Header(onConnect: () -> Unit) {
     val link by MeshController.link.collectAsState()
     val self by MeshController.self.collectAsState()
     val device by MeshController.device.collectAsState()
+    val mode by LoraController.mode.collectAsState()
+    val lora by LoraController.config.collectAsState()
     var menu by remember { mutableStateOf(false) }
 
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -158,10 +174,14 @@ fun Header(onConnect: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("MeshCore USB", color = Mesh.TEXT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            val summary = self?.let { s ->
-                val bytes = device?.let { " • " + bytesLabel(it.pathHashMode + 1) } ?: ""
-                "${s.name} • ${"%.3f".format(Locale.US, s.freqKhz / 1000.0)} MHz$bytes"
-            } ?: tr("MeshCore on your phone via a USB MeshStick or XIAO", "MeshCore no celular via USB MeshStick ou XIAO")
+            val summary = if (mode == RadioMode.LORA) {
+                tr("Generic LoRa", "LoRa genérico") + " • " + lora.summary
+            } else {
+                self?.let { s ->
+                    val bytes = device?.let { " • " + bytesLabel(it.pathHashMode + 1) } ?: ""
+                    "${s.name} • ${"%.3f".format(Locale.US, s.freqKhz / 1000.0)} MHz$bytes"
+                } ?: tr("MeshCore on your phone via a USB MeshStick or XIAO", "MeshCore no celular via USB MeshStick ou XIAO")
+            }
             Muted(summary, size = 12, maxLines = 1)
         }
         val (label, color) = when (link.state) {
@@ -174,12 +194,13 @@ fun Header(onConnect: () -> Unit) {
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, tr("Menu", "Menu"), tint = Mesh.MUTED) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val meshOn = link.state == LinkState.RUNNING && mode == RadioMode.MESHCORE
                 DropdownMenuItem(
-                    text = { Text(tr("Send advert (flood)", "Enviar advert (flood)")) }, enabled = link.state == LinkState.RUNNING,
+                    text = { Text(tr("Send advert (flood)", "Enviar advert (flood)")) }, enabled = meshOn,
                     onClick = { menu = false; MeshController.sendAdvert(true) },
                 )
                 DropdownMenuItem(
-                    text = { Text(tr("Send advert (zero-hop)", "Enviar advert (zero-hop)")) }, enabled = link.state == LinkState.RUNNING,
+                    text = { Text(tr("Send advert (zero-hop)", "Enviar advert (zero-hop)")) }, enabled = meshOn,
                     onClick = { menu = false; MeshController.sendAdvert(false) },
                 )
                 DropdownMenuItem(text = { Text(tr("Reconnect radio", "Reconectar rádio")) }, onClick = { menu = false; onConnect() })
@@ -189,7 +210,7 @@ fun Header(onConnect: () -> Unit) {
 }
 
 @Composable
-private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
+private fun BottomBar(tab: Tab, tabs: List<Tab>, mode: RadioMode, onTab: (Tab) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -201,7 +222,7 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
             .padding(4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        Tab.entries.forEach { t ->
+        tabs.forEach { t ->
             val sel = t == tab
             Column(
                 Modifier
@@ -212,8 +233,8 @@ private fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
                     .padding(vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(t.icon, t.label, tint = if (sel) Mesh.ACCENT else Mesh.MUTED, modifier = Modifier.size(22.dp))
-                Text(t.label, color = if (sel) Mesh.ACCENT else Mesh.MUTED, fontSize = 11.sp, maxLines = 1)
+                Icon(t.icon, t.label(mode), tint = if (sel) Mesh.ACCENT else Mesh.MUTED, modifier = Modifier.size(22.dp))
+                Text(t.label(mode), color = if (sel) Mesh.ACCENT else Mesh.MUTED, fontSize = 11.sp, maxLines = 1)
             }
         }
     }

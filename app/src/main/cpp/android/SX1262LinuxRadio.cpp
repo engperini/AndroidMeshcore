@@ -335,11 +335,15 @@ void SX1262LinuxRadio::sxSetBufferBase(uint8_t tx_base, uint8_t rx_base) {
 }
 
 void SX1262LinuxRadio::sxSetModulation() {
-  uint8_t bw = 0x05;
-  if (cfg.bandwidth_hz <= 62500) bw = 0x03;
-  else if (cfg.bandwidth_hz <= 125000) bw = 0x04;
-  else if (cfg.bandwidth_hz <= 250000) bw = 0x05;
-  else bw = 0x06;
+  // SX126x LoRa bandwidth codes, from the closest bandwidth not above the configured one.
+  static const struct { int hz; uint8_t code; } kBw[] = {
+    {7810, 0x00}, {10420, 0x08}, {15630, 0x01}, {20830, 0x09}, {31250, 0x02},
+    {41670, 0x0A}, {62500, 0x03}, {125000, 0x04}, {250000, 0x05}, {500000, 0x06},
+  };
+  uint8_t bw = 0x00;
+  for (const auto& b : kBw) {
+    if (cfg.bandwidth_hz + 50 >= b.hz) bw = b.code;   // 50 Hz slack: 7800 means 7.81 kHz
+  }
 
   uint8_t cr = 0x01;
   if (cfg.coding_rate >= 8) cr = 0x04;

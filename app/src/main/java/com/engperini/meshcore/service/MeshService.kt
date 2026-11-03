@@ -24,6 +24,7 @@ import androidx.core.content.ContextCompat
 import com.engperini.meshcore.MainActivity
 import com.engperini.meshcore.R
 import com.engperini.meshcore.core.LinkState
+import com.engperini.meshcore.core.LoraController
 import com.engperini.meshcore.core.MeshController
 import com.engperini.meshcore.core.NativeMesh
 import kotlinx.coroutines.CoroutineScope
@@ -131,6 +132,7 @@ class MeshService : Service() {
         xiaoLink = link
         acquireWakeLock()
         val dataDir = File(filesDir, "meshcore").apply { mkdirs() }
+        LoraController.pushToNative()   // protocol (MeshCore or generic LoRa) and its parameters
         NativeMesh.nativeStart(
             dataDir.absolutePath, conn.fileDescriptor, kind.nativeId,
             link?.epIn ?: -1, link?.epOut ?: -1, link?.dataInterface ?: -1,

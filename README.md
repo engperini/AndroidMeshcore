@@ -93,6 +93,13 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
   - **Location** in the advert (typed or from the phone's GPS).
   - **Identity backup**: export and restore the private key.
   - **Language**: system, English or Português.
+- 📻 **Modes** (Settings → Mode), one at a time on the same radio, each keeping its own data:
+  - **MeshCore**: the node described above.
+  - **Generic LoRa**: raw LoRa packets with free parameters (frequency, bandwidth 7.8–500 kHz, SF5–12, CR,
+    sync word, preamble, power), for your own sensors and telemetry. Every packet heard shows up as text or
+    hex with RSSI/SNR and a signal chart, and you can send packets. Presets listen to MeshCore and Meshtastic
+    channels. The MeshCore node pauses and comes back as it was.
+  - **Meshtastic**: planned, the same way the MeshCore firmware runs on the phone.
 - 🔔 New-message notifications, the radio keeps running with the screen off, and the app opens by itself when you
   plug in the MeshStick.
 
@@ -317,6 +324,13 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
   - **Localização** no advert (digitada ou pelo GPS).
   - **Backup da identidade**: exportar e restaurar a chave privada.
   - **Idioma**: sistema, English ou Português.
+- 📻 **Modos** (Configurações → Modo), um por vez no mesmo rádio, cada um com seus próprios dados:
+  - **MeshCore**: o nó descrito acima.
+  - **LoRa genérico**: pacotes LoRa crus com parâmetros livres (frequência, largura de banda de 7,8 a 500 kHz,
+    SF5–12, CR, sync word, preâmbulo, potência), para seus sensores e telemetria. Cada pacote recebido aparece em
+    texto ou hex com RSSI/SNR e gráfico de sinal, e dá para enviar pacotes. Há predefinições para ouvir canais
+    MeshCore e Meshtastic. O nó MeshCore pausa e volta como estava.
+  - **Meshtastic**: planejado, do mesmo jeito que o firmware MeshCore roda no celular.
 - 🔔 Notificações de mensagens novas, rádio ativo com a tela apagada, e o app abre sozinho quando você pluga o
   MeshStick.
 

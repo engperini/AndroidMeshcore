@@ -143,6 +143,7 @@ object MeshController {
         if (::store.isInitialized) return
         store = MessageStore(context.applicationContext)
         prefs = context.applicationContext.getSharedPreferences("app", Context.MODE_PRIVATE)
+        LoraController.init(context)
         NativeMesh.frameListener = ::onFrame
         NativeMesh.statusListener = ::onStatus
         scope.launch { for (f in pushes) handlePush(f) }
@@ -198,7 +199,9 @@ object MeshController {
     private suspend fun request(
         frame: ByteArray, timeoutMs: Long = 5000, isLast: (ByteArray) -> Boolean = { true },
     ): List<ByteArray>? = cmdMutex.withLock {
-        if (_link.value.state != LinkState.RUNNING || previewMode) return@withLock null
+        if (_link.value.state != LinkState.RUNNING || previewMode || LoraController.mode.value != RadioMode.MESHCORE) {
+            return@withLock null
+        }
         val d = CompletableDeferred<List<ByteArray>>()
         synchronized(pendingLock) {
             pendingFrames = mutableListOf()
@@ -231,7 +234,8 @@ object MeshController {
             NativeMesh.STATUS_STARTING -> _link.value = LinkStatus(LinkState.STARTING, message)
             NativeMesh.STATUS_RUNNING -> {
                 _link.value = LinkStatus(LinkState.RUNNING, message)
-                scope.launch { handshake() }
+                // The companion node only answers in MeshCore mode.
+                if (LoraController.mode.value == RadioMode.MESHCORE) scope.launch { handshake() }
             }
             NativeMesh.STATUS_ERROR -> _link.value = LinkStatus(LinkState.ERROR, message)
             else -> _link.value = LinkStatus(LinkState.NO_DEVICE, tr("Connect the USB radio over OTG", "Conecte o rádio USB via OTG"))

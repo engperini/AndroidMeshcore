@@ -77,6 +77,9 @@ open class ScreenshotTest {
         val stats = NodeStats(uptimeSecs = 5400, noiseFloor = -120, lastRssi = -119, lastSnr = -10.5f, txAirSecs = 4, rxAirSecs = 9,
             recv = 8, sent = 4, sentFlood = 2, sentDirect = 2, recvFlood = 5, recvDirect = 3)
         MeshController.initForPreview(ctx, self, device, contacts, channels, stats, log)
+        com.engperini.meshcore.core.LoraController.preview(
+            com.engperini.meshcore.core.RadioMode.MESHCORE, com.engperini.meshcore.core.LoraConfig(), emptyList(),
+        )
 
         val store = MeshController.messages
         val pub = ConvKey.channel(channels[0].secretHex)
@@ -127,6 +130,23 @@ open class ScreenshotTest {
     }
 
     @Test fun contactDetail() = shot("8-contato") { ContactScreen(repeater.keyHex, Nav()) }
+
+    private fun loraPreview() {
+        val now = System.currentTimeMillis()
+        com.engperini.meshcore.core.LoraController.preview(
+            com.engperini.meshcore.core.RadioMode.LORA,
+            com.engperini.meshcore.core.LoraConfig(915000, 125000, 7, 5, 0x12, 14, 8),
+            listOf(
+                com.engperini.meshcore.core.RawPacket(now - 9000, false, "temp=24.6;hum=61".toByteArray(), -97f, 7.25f),
+                com.engperini.meshcore.core.RawPacket(now - 6000, false, byteArrayOf(0x01, 0x7F, 0x22, 0x00, 0x13), -104f, 2.5f),
+                com.engperini.meshcore.core.RawPacket(now - 4000, true, "ping".toByteArray(), sent = true),
+                com.engperini.meshcore.core.RawPacket(now - 2000, false, "pong from node 7".toByteArray(), -88f, 9.0f),
+            ),
+        )
+    }
+
+    @Test fun loraTerminal() = shot("10-lora") { loraPreview(); Home(Tab.CHATS, {}, Nav(), {}) }
+    @Test fun loraSettings() = shot("11-lora-config") { loraPreview(); Home(Tab.SETTINGS, {}, Nav(), {}) }
 
     @Test fun admin() = shot("9-admin-repetidor") {
         val p = repeater.pubKey.copyOf(6).joinToString("") { "%02x".format(it) }
