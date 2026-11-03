@@ -1,0 +1,14 @@
+cmake_minimum_required(VERSION 3.22)
+project(meshtastic_hosttest C CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_C_STANDARD 17)
+set(MT_DIR ${CMAKE_CURRENT_LIST_DIR}/../../../app/src/main/cpp/meshtastic)
+set(AND_DIR ${CMAKE_CURRENT_LIST_DIR}/../../../app/src/main/cpp/android)
+include(${MT_DIR}/sources.cmake)
+
+add_executable(mt_host host_main.cpp ${MT_SOURCES}
+  ${MT_DIR}/android/mt_glue.cpp ${MT_DIR}/android/pinedio_bus.cpp)
+target_include_directories(mt_host PRIVATE ${MT_INCLUDES} ${AND_DIR})
+target_compile_definitions(mt_host PRIVATE ${MT_DEFINES})
+target_compile_options(mt_host PRIVATE ${MT_OPTIONS})
+target_link_libraries(mt_host PRIVATE pthread)
