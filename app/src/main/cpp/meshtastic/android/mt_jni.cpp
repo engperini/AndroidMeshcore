@@ -18,6 +18,7 @@
 #include <jni.h>
 
 #include <atomic>
+#include <chrono>
 #include <cstdlib>
 #include <deque>
 #include <functional>
@@ -125,6 +126,8 @@ void run(std::string data_dir, bool xiao)
     mt_fs_mount();
     portduinoSetup();
     setup();
+    mt_sync_clock();
+    auto next_clock = std::chrono::steady_clock::now() + std::chrono::minutes(30);
     const bool radio = RadioLibInterface::instance != nullptr;
     status("running", radio ? "Meshtastic running" : "The radio did not answer", radio);
 
@@ -132,6 +135,10 @@ void run(std::string data_dir, bool xiao)
         drainRequests();
         loop();
         drainEvents();
+        if (std::chrono::steady_clock::now() >= next_clock) {
+            mt_sync_clock();
+            next_clock = std::chrono::steady_clock::now() + std::chrono::minutes(30);
+        }
         if (mt_take_reboot_request()) {
             drainEvents();
             emit("{\"t\":\"reboot\"}");

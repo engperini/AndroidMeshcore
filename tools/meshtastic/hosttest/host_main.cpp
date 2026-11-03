@@ -62,6 +62,7 @@ int main(int argc, char** argv)
     mt_fs_mount();
     portduinoSetup();
     setup();
+    mt_sync_clock();
 
     step("config_request", mt_request_config(4242));
     step("config_complete", pump(20000, [](const std::string& e) { return has(e, "\"t\":\"ready\""); }));

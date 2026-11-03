@@ -14,6 +14,10 @@ bool mt_use_simradio();
 
 int mt_set_region(int region);
 
+// Sets the node's clock from the phone's (network/NTP time), as the official apps do when they connect.
+// Without a valid clock the node does not record when it last heard each node.
+void mt_sync_clock();
+
 // Idle wait of the firmware loop (see emscripten.h): returns after [ms], when the radio raises its IRQ line,
 // or when mt_wake() is called (the app queued a request).
 void mt_idle(unsigned int ms);

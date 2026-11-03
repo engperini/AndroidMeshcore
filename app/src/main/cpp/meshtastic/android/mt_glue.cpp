@@ -15,6 +15,7 @@
 #include "PortduinoFS.h"
 #include "PortduinoGlue.h"
 #include "RadioInterface.h"
+#include "gps/RTC.h"
 
 #include <atomic>
 #include <chrono>
@@ -137,6 +138,12 @@ int mt_set_region(int region)
     initRegion();
     if (service) service->reloadConfig(changes);
     return 0;
+}
+
+void mt_sync_clock()
+{
+    struct timeval tv;
+    if (gettimeofday(&tv, nullptr) == 0 && tv.tv_sec > 1700000000) perhapsSetRTC(RTCQualityNTP, &tv);
 }
 
 // ---- PhoneAPI: the app is always the connected client
