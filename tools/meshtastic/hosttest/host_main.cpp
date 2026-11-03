@@ -92,5 +92,17 @@ int main(int argc, char** argv)
         return has(e, "\"nonce\":4244");
     });
     step("region_set", anz);
+
+    // The node announces itself at most once a minute; the region change above just made it do so.
+    printf("INFO nodeinfo_sent %d\n", mt_send_nodeinfo() ? 1 : 0);
+    step("set_position", mt_set_position(-229068000, -470629000, 650));
+    pump(1000);
+    step("config_request_pos", mt_request_config(4245));
+    bool located = false;
+    pump(20000, [&](const std::string& e) {
+        if (has(e, "\"long\":\"Host Test\"") && has(e, "\"lat\":-22.9")) located = true;
+        return has(e, "\"nonce\":4245");
+    });
+    step("own_position", located);
     return 0;
 }

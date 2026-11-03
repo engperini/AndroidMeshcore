@@ -15,14 +15,15 @@ set(MT_FW_TOP
   FSCommon.cpp SafeFile.cpp MessageStore.cpp meshUtils.cpp UptimeClock.cpp memGet.cpp GpioLogic.cpp PowerMon.cpp
   SPILock.cpp xmodem.cpp DisplayFormatters.cpp detect/ScanI2C.cpp detect/ScanI2CTwoWire.cpp
   detect/ScanI2CConsumer.cpp power/PowerHAL.cpp gps/RTC.cpp buzz/buzz.cpp buzz/BuzzerFeedbackThread.cpp
-  platform/portduino/PortduinoGlue.cpp platform/portduino/SimRadio.cpp
+  platform/portduino/PortduinoGlue.cpp platform/portduino/SimRadio.cpp platform/portduino/GpsdSerial.cpp
   platform/portduino/wasm/stubs/serializer_stub.cpp
 )
 list(TRANSFORM MT_FW_TOP PREPEND ${FW}/)
 file(GLOB MT_FW_MESH ${FW}/mesh/*.cpp ${FW}/mesh/*.c)
 list(FILTER MT_FW_MESH EXCLUDE REGEX "LR20x0Interface\\.cpp$")   # amalgamated into InterfacesTemplates.cpp
 file(GLOB MT_FW_GEN ${FW}/mesh/generated/meshtastic/*.cpp)
-file(GLOB MT_FW_MISC ${FW}/concurrency/*.cpp ${FW}/memory/*.cpp)
+file(GLOB MT_FW_MISC ${FW}/concurrency/*.cpp ${FW}/memory/*.cpp ${FW}/gps/*.cpp)
+list(FILTER MT_FW_MISC EXCLUDE REGEX "/gps/RTC\\.cpp$")   # already in MT_FW_TOP
 file(GLOB_RECURSE MT_FW_MODULES ${FW}/modules/*.cpp)
 list(FILTER MT_FW_MODULES EXCLUDE REGEX "/modules/esp32/")
 # I2C sensor drivers: no I2C bus on a phone (environmental and air-quality sensors are excluded anyway)
@@ -90,8 +91,10 @@ set(MT_DEFINES
   MESHTASTIC_EXCLUDE_DROPZONE=1 MESHTASTIC_EXCLUDE_REPLYBOT=1 MESHTASTIC_EXCLUDE_RANGETEST=1
   MESHTASTIC_EXCLUDE_REMOTEHARDWARE=1 MESHTASTIC_EXCLUDE_HEALTH_TELEMETRY=1 MESHTASTIC_EXCLUDE_POWERSTRESS=1
   MESHTASTIC_EXCLUDE_POWERMON=1 MESHTASTIC_EXCLUDE_GENERIC_THREAD_MODULE=1
-  # [env:native-wasm]: a headless node, no screen / GPS / I2C / sensors / host services
-  HAS_SCREEN=0 MESHTASTIC_EXCLUDE_SCREEN=1 MESHTASTIC_EXCLUDE_GPS=1 NO_GPS=1 NO_EXT_GPIO=1
+  # [env:native-wasm]: a headless node, no screen / I2C / sensors / host services. Unlike the WASM build, the
+  # position code stays in (no GPS device is configured): the phone shares its location and the node keeps
+  # the positions it hears, for the map.
+  HAS_SCREEN=0 MESHTASTIC_EXCLUDE_SCREEN=1 NO_EXT_GPIO=1
   MESHTASTIC_EXCLUDE_I2C=1 MESHTASTIC_EXCLUDE_ACCELEROMETER=1 MESHTASTIC_EXCLUDE_MAGNETOMETER=1
   MESHTASTIC_EXCLUDE_AUDIO=1 MESHTASTIC_EXCLUDE_INPUTBROKER=1 MESHTASTIC_EXCLUDE_MQTT=1 MESHTASTIC_EXCLUDE_TZ=1
   MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR=1 MESHTASTIC_EXCLUDE_DETECTIONSENSOR=1

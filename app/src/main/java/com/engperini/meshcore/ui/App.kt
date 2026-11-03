@@ -88,7 +88,7 @@ enum class Tab(private val en: String, private val pt: String, val icon: ImageVe
 fun tabsFor(mode: RadioMode): List<Tab> = when (mode) {
     RadioMode.MESHCORE -> Tab.entries
     RadioMode.LORA -> listOf(Tab.CHATS, Tab.SETTINGS)
-    RadioMode.MESHTASTIC -> listOf(Tab.CHATS, Tab.CONTACTS, Tab.SETTINGS)
+    RadioMode.MESHTASTIC -> listOf(Tab.CHATS, Tab.CONTACTS, Tab.MAP, Tab.SETTINGS)
 }
 
 /** Screens above the tabs. */
@@ -210,15 +210,29 @@ fun Header(onConnect: () -> Unit) {
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, tr("Menu", "Menu"), tint = Mesh.MUTED) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                val meshOn = link.state == LinkState.RUNNING && mode == RadioMode.MESHCORE
-                DropdownMenuItem(
-                    text = { Text(tr("Send advert (flood)", "Enviar advert (flood)")) }, enabled = meshOn,
-                    onClick = { menu = false; MeshController.sendAdvert(true) },
-                )
-                DropdownMenuItem(
-                    text = { Text(tr("Send advert (zero-hop)", "Enviar advert (zero-hop)")) }, enabled = meshOn,
-                    onClick = { menu = false; MeshController.sendAdvert(false) },
-                )
+                val running = link.state == LinkState.RUNNING
+                when (mode) {
+                    RadioMode.MESHCORE -> {
+                        DropdownMenuItem(
+                            text = { Text(tr("Send advert (flood)", "Enviar advert (flood)")) }, enabled = running,
+                            onClick = { menu = false; MeshController.sendAdvert(true) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(tr("Send advert (zero-hop)", "Enviar advert (zero-hop)")) }, enabled = running,
+                            onClick = { menu = false; MeshController.sendAdvert(false) },
+                        )
+                    }
+                    RadioMode.MESHTASTIC -> DropdownMenuItem(
+                        text = { Text(tr("Announce node (NodeInfo)", "Anunciar nó (NodeInfo)")) }, enabled = running,
+                        onClick = {
+                            menu = false
+                            if (com.engperini.meshcore.core.MeshtasticController.sendNodeInfo()) {
+                                MeshController.notice(tr("Announcing the node (at most once a minute)", "Anunciando o nó (no máximo 1 vez por minuto)"))
+                            }
+                        },
+                    )
+                    RadioMode.LORA -> {}
+                }
                 DropdownMenuItem(text = { Text(tr("Reconnect radio", "Reconectar rádio")) }, onClick = { menu = false; onConnect() })
             }
         }

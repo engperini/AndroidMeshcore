@@ -248,6 +248,11 @@ void deInitApiServer() {}
 // Referenced by modules that are built even with the input broker excluded; there is none on a phone.
 class InputBroker;
 InputBroker* inputBroker = nullptr;
+// The GPS code checks for these input devices (built with the input broker); a phone has none.
+class UpDownInterruptImpl1;
+UpDownInterruptImpl1* upDownInterruptImpl1 = nullptr;
+class RotaryEncoderInterruptImpl1;
+RotaryEncoderInterruptImpl1* rotaryEncoderInterruptImpl1 = nullptr;
 
 // Command-line arguments come from the framework's main(), which the app does not use.
 #include <argp.h>

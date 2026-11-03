@@ -71,6 +71,7 @@ class MtEngineService : Service() {
             OP_LORA -> MtNative.setLora(d.getInt("region"), d.getInt("preset"), d.getInt("hops"), d.getBoolean("tx"), d.getInt("power"))
             OP_CHANNEL -> MtNative.setChannel(d.getInt("index"), d.getInt("role"), d.getString("name") ?: "", d.getByteArray("psk"))
             OP_REMOVE -> MtNative.removeNode(d.getInt("num"))
+            OP_NODEINFO -> MtNative.sendNodeInfo()
             OP_POSITION -> MtNative.setPosition(d.getInt("lat"), d.getInt("lon"), d.getInt("alt"))
         }
     }
@@ -106,5 +107,6 @@ class MtEngineService : Service() {
         const val OP_CHANNEL = "channel"
         const val OP_REMOVE = "remove"
         const val OP_POSITION = "position"
+        const val OP_NODEINFO = "nodeinfo"
     }
 }

@@ -8,6 +8,7 @@
 #include "RadioLibInterface.h"
 #include "Router.h"
 #include "TypeConversions.h"
+#include "modules/NodeInfoModule.h"
 #include "mesh/generated/meshtastic/admin.pb.h"
 #include "mesh/generated/meshtastic/mesh.pb.h"
 #include "mesh/generated/meshtastic/portnums.pb.h"
@@ -448,6 +449,11 @@ bool mt_remove_node(uint32_t num)
     a.which_payload_variant = meshtastic_AdminMessage_remove_by_nodenum_tag;
     a.remove_by_nodenum = num;
     return sendAdmin(a);
+}
+
+bool mt_send_nodeinfo()
+{
+    return nodeInfoModule && nodeInfoModule->sendOurNodeInfo(NODENUM_BROADCAST, true, 0, true);
 }
 
 // The phone's location as the node's own position, the way the official apps share it.

@@ -247,6 +247,11 @@ JNIEXPORT void JNICALL Java_com_engperini_meshcore_mt_MtNative_removeNode(JNIEnv
     post([num] { mt_remove_node(static_cast<uint32_t>(num)); });
 }
 
+JNIEXPORT void JNICALL Java_com_engperini_meshcore_mt_MtNative_sendNodeInfo(JNIEnv*, jclass)
+{
+    post([] { mt_send_nodeinfo(); });
+}
+
 JNIEXPORT void JNICALL Java_com_engperini_meshcore_mt_MtNative_setPosition(JNIEnv*, jclass, jint lat_i, jint lon_i,
                                                                           jint alt)
 {

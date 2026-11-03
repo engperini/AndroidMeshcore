@@ -23,4 +23,6 @@ bool mt_set_owner(const std::string& long_name, const std::string& short_name);
 bool mt_set_lora(int region, int preset, int hop_limit, bool tx_enabled, int tx_power);
 bool mt_set_channel(int index, int role, const std::string& name, const std::vector<uint8_t>& psk);
 bool mt_remove_node(uint32_t num);
+// Announces this node (NodeInfo) to the mesh, asking the nodes that hear it for theirs.
+bool mt_send_nodeinfo();
 bool mt_set_position(int32_t lat_i, int32_t lon_i, int32_t alt);

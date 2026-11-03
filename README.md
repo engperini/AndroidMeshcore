@@ -73,7 +73,8 @@ to other Meshtastic devices on the air like any Meshtastic radio.
   Your messages show when a node was heard passing them on (implicit ACK), and direct messages turn *delivered ✓✓*
   with the destination's ACK.
 - 📡 **Nodes**: every node heard, with hops, SNR, battery and last heard; **Traceroute** shows the path out and back
-  with the SNR of each hop.
+  with the SNR of each hop. ⋮ → **Announce node** sends your NodeInfo now.
+- 🗺️ **Map**: nodes that share a position; **Share my position** sends the phone's location as your node's.
 - ⚙️ **Settings**: long and short name, **region** (Meshtastic does not transmit until it is set; in Brazil most
   communities use **ANZ**), modem preset, hop limit, power, and channels (name and key, add/delete).
 - The node runs in its own Android process; a node restart (after some settings) takes a few seconds. Its data stays
@@ -331,7 +332,8 @@ outros aparelhos Meshtastic como qualquer rádio Meshtastic.
   mensagens mostram quando um nó foi ouvido repassando (ACK implícito), e as diretas ficam *entregue ✓✓* com o ACK do
   destino.
 - 📡 **Nós**: todos os nós ouvidos, com saltos, SNR, bateria e quando foi ouvido; o **Traceroute** mostra o caminho de
-  ida e volta com o SNR de cada salto.
+  ida e volta com o SNR de cada salto. ⋮ → **Anunciar nó** envia seu NodeInfo na hora.
+- 🗺️ **Mapa**: os nós que compartilham posição; **Compartilhar posição** envia a localização do celular como a do seu nó.
 - ⚙️ **Config**: nome longo e curto, **região** (o Meshtastic não transmite até ela ser definida; no Brasil a maioria
   das comunidades usa **ANZ**), preset do modem, limite de saltos, potência e canais (nome e chave, adicionar/excluir).
 - O nó roda num processo Android próprio; um reinício do nó (depois de algumas configurações) leva alguns segundos. Os

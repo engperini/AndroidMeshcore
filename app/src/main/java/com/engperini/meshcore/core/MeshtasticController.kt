@@ -532,14 +532,18 @@ object MeshtasticController {
         _nodes.update { it - num }
     }
 
-    /** Shares the phone's location as the node's own position. */
+    /** Shares the phone's location as the node's own position (broadcast with the node's next position update). */
     fun setPosition(lat: Double, lon: Double, alt: Int) {
         call(MtEngineService.OP_POSITION) {
             putInt("lat", (lat * 1e7).toInt())
             putInt("lon", (lon * 1e7).toInt())
             putInt("alt", alt)
         }
+        main.postDelayed({ requestConfig() }, 800)
     }
+
+    /** Announces this node (name, key) to the mesh now; nodes that hear it answer with theirs. */
+    fun sendNodeInfo(): Boolean = call(MtEngineService.OP_NODEINFO)
 
     /** Screenshot tests. */
     @androidx.annotation.VisibleForTesting

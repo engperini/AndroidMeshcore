@@ -23,6 +23,7 @@ object MtNative {
     @JvmStatic external fun setLora(region: Int, preset: Int, hopLimit: Int, txEnabled: Boolean, txPower: Int)
     @JvmStatic external fun setChannel(index: Int, role: Int, name: String, psk: ByteArray?)
     @JvmStatic external fun removeNode(num: Int)
+    @JvmStatic external fun sendNodeInfo()
     @JvmStatic external fun setPosition(latI: Int, lonI: Int, alt: Int)
 
     /** Called on the radio thread with one or more JSON events, one per line. */

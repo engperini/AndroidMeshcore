@@ -36,16 +36,16 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.TilesOverlay
 
-/** Contacts that advertise a position, on OpenStreetMap (no API key). */
+/** Nodes that share a position, on OpenStreetMap (no API key): MeshCore contacts or Meshtastic nodes. */
 @Composable
 fun MapScreen(nav: Nav) {
-    val contacts by MeshController.contacts.collectAsState()
-    val self by MeshController.self.collectAsState()
-    val context = LocalContext.current
-    var selected by remember { mutableStateOf<Contact?>(null) }
-    var fitted by remember { mutableStateOf(false) }
+    val mode by com.engperini.meshcore.core.LoraController.mode.collectAsState()
+    if (mode == com.engperini.meshcore.core.RadioMode.MESHTASTIC) MtMapScreen(nav) else MeshCoreMapScreen(nav)
+}
 
-    val located = contacts.filter { it.lat != 0.0 || it.lon != 0.0 }
+@Composable
+private fun rememberMapView(): MapView {
+    val context = LocalContext.current
     val mapView = remember {
         Configuration.getInstance().apply {
             userAgentValue = context.packageName
@@ -65,6 +65,113 @@ fun MapScreen(nav: Nav) {
         mapView.onResume()
         onDispose { mapView.onPause() }
     }
+    return mapView
+}
+
+private fun fit(map: MapView, points: List<GeoPoint>) {
+    map.post {
+        if (points.size == 1) {
+            map.controller.setZoom(12.0)
+            map.controller.setCenter(points[0])
+        } else {
+            map.zoomToBoundingBox(BoundingBox.fromGeoPoints(points).increaseByScale(1.3f), false)
+        }
+    }
+}
+
+/** Meshtastic nodes with a position; the phone's own position can be shared from here. */
+@Composable
+private fun MtMapScreen(nav: Nav) {
+    val nodes by com.engperini.meshcore.core.MeshtasticController.nodes.collectAsState()
+    val my by com.engperini.meshcore.core.MeshtasticController.myNum.collectAsState()
+    val link by MeshController.link.collectAsState()
+    val context = LocalContext.current
+    var selected by remember { mutableStateOf<com.engperini.meshcore.core.MtNode?>(null) }
+    var fitted by remember { mutableStateOf(false) }
+    val located = nodes.values.filter { it.lat != null && it.lon != null }
+    val mapView = rememberMapView()
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        val loc = if (granted.values.any { it }) lastLocation(context) else null
+        if (loc != null) {
+            com.engperini.meshcore.core.MeshtasticController.setPosition(loc.first, loc.second, 0)
+            MeshController.notice(tr("Position shared with the mesh", "Posição compartilhada com a malha"))
+        } else {
+            MeshController.notice(tr("Phone location not available", "Localização do celular indisponível"))
+        }
+    }
+
+    Box(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
+        AndroidView(
+            factory = { mapView },
+            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)),
+            update = { map ->
+                map.overlays.clear()
+                val points = mutableListOf<GeoPoint>()
+                val density = map.context.resources.displayMetrics.density
+                located.forEach { n ->
+                    val p = GeoPoint(n.lat!!, n.lon!!)
+                    points.add(p)
+                    val me = n.num == my
+                    map.overlays.add(Marker(map).apply {
+                        position = p
+                        title = if (me) "${n.title} (${tr("you", "você")})" else n.title
+                        snippet = if (me) n.id else "${n.id} • ${ago(n.lastHeard)}"
+                        icon = dot((if (me) Mesh.GREEN else if (n.role in 2..4) Mesh.AMBER else Mesh.ACCENT).toArgb(), density, big = me)
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        setOnMarkerClickListener { _, _ -> selected = n; true }
+                    })
+                }
+                if (!fitted && points.isNotEmpty()) {
+                    fitted = true
+                    fit(map, points)
+                }
+                map.invalidate()
+            },
+        )
+        Column(Modifier.align(Alignment.TopStart).padding(10.dp)) {
+            StatusChip(tr("${located.size} of ${nodes.size} nodes with position", "${located.size} de ${nodes.size} nós com posição"), Mesh.ACCENT)
+        }
+        Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
+            Pill(tr("Share my position", "Compartilhar posição"), style = PillStyle.PRIMARY, enabled = link.state == com.engperini.meshcore.core.LinkState.RUNNING) {
+                launcher.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
+        }
+        selected?.let { n ->
+            Box(Modifier.align(Alignment.BottomCenter).padding(10.dp)) {
+                MeshCard {
+                    ListRow(
+                        title = n.title,
+                        subtitle = n.id + (n.hops?.let { " • " + if (it == 0) tr("direct", "direto") else hopsCount(it) } ?: "") + " • " + ago(n.lastHeard),
+                        avatar = { MeshAvatar(n.short, if (n.num == my) Mesh.GREEN else Mesh.ACCENT) },
+                        onClick = { nav.push(Route.MtNode(n.num)) },
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (n.num != my) {
+                            Pill(tr("Message", "Mensagem"), Modifier.weight(1f), PillStyle.PRIMARY) {
+                                nav.openChat(Conversation(ConvKey.mtDirect(n.num), n.title, false, prefixHex = "%08x".format(n.num)))
+                            }
+                        }
+                        Pill(tr("Details", "Detalhes"), Modifier.weight(1f)) { nav.push(Route.MtNode(n.num)) }
+                        Pill(tr("Close", "Fechar"), Modifier.weight(1f), PillStyle.TEXT) { selected = null }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeshCoreMapScreen(nav: Nav) {
+    val contacts by MeshController.contacts.collectAsState()
+    val self by MeshController.self.collectAsState()
+    val context = LocalContext.current
+    var selected by remember { mutableStateOf<Contact?>(null) }
+    var fitted by remember { mutableStateOf(false) }
+
+    val located = contacts.filter { it.lat != 0.0 || it.lon != 0.0 }
+    val mapView = rememberMapView()
 
     Box(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp)) {
         AndroidView(
@@ -97,14 +204,7 @@ fun MapScreen(nav: Nav) {
                 }
                 if (!fitted && points.isNotEmpty()) {
                     fitted = true
-                    map.post {
-                        if (points.size == 1) {
-                            map.controller.setZoom(12.0)
-                            map.controller.setCenter(points[0])
-                        } else {
-                            map.zoomToBoundingBox(BoundingBox.fromGeoPoints(points).increaseByScale(1.3f), false)
-                        }
-                    }
+                    fit(map, points)
                 }
                 map.invalidate()
             },

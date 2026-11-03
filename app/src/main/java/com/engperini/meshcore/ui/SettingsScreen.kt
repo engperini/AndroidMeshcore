@@ -332,7 +332,7 @@ private fun LocationCard() {
 }
 
 @SuppressLint("MissingPermission")
-private fun lastLocation(context: Context): Pair<Double, Double>? {
+internal fun lastLocation(context: Context): Pair<Double, Double>? {
     val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
     return try {
         lm.getProviders(true).mapNotNull { lm.getLastKnownLocation(it) }.maxByOrNull { it.time }?.let { it.latitude to it.longitude }
