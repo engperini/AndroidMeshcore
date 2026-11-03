@@ -103,7 +103,9 @@ void updateDiag() {
   g_diag = diag;
 }
 
-// MeshStick profile: CH341 + SX1262, pins D0/D2/D4/D6, DIO3 TCXO and DIO2 RF switch.
+// CH341 profile (USB MeshStick, and the no-MCU USB LoRa stick in hardware/): pins D0/D2/D4/D6,
+// DIO3 TCXO and DIO2 RF switch. D1 is driven as RXEN (high while receiving): the MeshStick leaves it
+// unconnected, and the USB LoRa stick wires it to the Wio-SX1262's RF_SW.
 // XIAO profile: bridge logical pins; TCXO, DIO2 and RXEN come from the bridge.
 // Selecting a driver also drops the old radio backend, which releases USB.
 void configureRadio() {
@@ -113,7 +115,7 @@ void configureRadio() {
                         XiaoBridge::PIN_DIO1, XiaoBridge::PIN_TXEN, XiaoBridge::PIN_RXEN, true, true);
   } else {
     radio_set_driver("sx1262_ch341");
-    radio_set_hw_config("", 0, 0, 0, -1, -1, -1, -1, -1, -1, true, true);
+    radio_set_hw_config("", 0, 0, 0, -1, -1, -1, -1, -1, /* rxen = D1 */ 1, true, true);
   }
 }
 

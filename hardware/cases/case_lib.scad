@@ -27,8 +27,9 @@ module plug_hole(w, h, depth) {
 
 // in_len/in_w/in_h: cavity. a_*: adapter body. a_z: adapter (plug) centre height above the cavity floor.
 // ant_slot: [width, height] of the antenna cable slot in the rear wall, at the top.
+// ant_side: [x, z] to put that slot in the side wall instead (x along the case, z above the floor).
 // led: [x, y] above the cavity origin for a light hole in the lid, or [] for none.
-module case_base(in_len, in_w, in_h, a_len, a_w, a_h, plug_w, plug_h, a_z, ant_slot, label = "") {
+module case_base(in_len, in_w, in_h, a_len, a_w, a_h, plug_w, plug_h, a_z, ant_slot, label = "", ant_side = []) {
     out_len = in_len + 2 * wall;
     out_w = in_w + 2 * wall;
     out_h = in_h + floor_t;
@@ -41,9 +42,13 @@ module case_base(in_len, in_w, in_h, a_len, a_w, a_h, plug_w, plug_h, a_z, ant_s
             cube([wall - lip + 0.01, a_w + tol, a_h + tol]);
         // plug goes out through the lip
         translate([-1, out_w / 2, floor_t + a_z]) plug_hole(plug_w + tol, plug_h + tol, lip + 2);
-        // antenna cable slot, rear wall, from the top edge down
-        translate([out_len - wall - 1, out_w / 2 - ant_slot[0] / 2, out_h - ant_slot[1]])
-            cube([wall + 2, ant_slot[0], ant_slot[1] + 1]);
+        // antenna cable slot: rear wall from the top edge down, or a side wall hole
+        if (len(ant_side) == 2)
+            translate([wall + ant_side[0] - ant_slot[0] / 2, out_w - wall - 1, floor_t + ant_side[1] - ant_slot[1] / 2])
+                cube([ant_slot[0], wall + 2, ant_slot[1]]);
+        else
+            translate([out_len - wall - 1, out_w / 2 - ant_slot[0] / 2, out_h - ant_slot[1]])
+                cube([wall + 2, ant_slot[0], ant_slot[1] + 1]);
         // name on the bottom
         if (label != "")
             translate([out_len / 2, out_w / 2, 0.4]) rotate([180, 0, 0])
@@ -55,7 +60,7 @@ module case_base(in_len, in_w, in_h, a_len, a_w, a_h, plug_w, plug_h, a_z, ant_s
             cube([a_len, 1.2, max(0.01, a_z - (a_h + tol) / 2 + a_h * 0.6)]);
 }
 
-module case_lid(in_len, in_w, ant_slot, led = [], press = []) {
+module case_lid(in_len, in_w, ant_slot, led = [], press = [], rear_slot = true) {
     out_len = in_len + 2 * wall;
     out_w = in_w + 2 * wall;
     difference() {
@@ -67,8 +72,9 @@ module case_lid(in_len, in_w, ant_slot, led = [], press = []) {
                     rrect([in_len - 2 * fit, in_w - 2 * fit, skirt], 0.8);
                     translate([1.2, 1.2, -1]) cube([in_len - 2 * fit - 2.4, in_w - 2 * fit - 2.4, skirt + 2]);
                     // leave the antenna slot free
-                    translate([in_len - 2 * fit - 2, (in_w - 2 * fit) / 2 - ant_slot[0] / 2, -1])
-                        cube([3, ant_slot[0], skirt + 2]);
+                    if (rear_slot)
+                        translate([in_len - 2 * fit - 2, (in_w - 2 * fit) / 2 - ant_slot[0] / 2, -1])
+                            cube([3, ant_slot[0], skirt + 2]);
                 }
             // posts that press the board down: [x, y, length] from the cavity origin
             for (p = press) translate([wall + p[0], wall + p[1], lid_t]) cylinder(d = 2.4, h = p[2]);

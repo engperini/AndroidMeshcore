@@ -124,7 +124,7 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
 |---|---|---|
 | USB MeshStick (CH341A `1a86:5512` + SX1262), e.g. the Elecrow MeshStick | USB OTG | ✅ supported, field-tested |
 | Seeed **XIAO nRF52840 + Wio-SX1262** kit with the [xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) firmware | USB OTG | ✅ supported |
-| **USB LoRa stick** (CH341F + Core1262-HF, no MCU), in [`hardware/`](hardware/) | USB OTG | 🧪 v0.1 design, not built yet |
+| **USB LoRa stick** (CH341F + Wio-SX1262, no MCU), in [`hardware/`](hardware/) | USB OTG | 🧪 v0.2 design, not built yet |
 
 Pins, TCXO (DIO3) and RF switch (DIO2) are preset for the MeshStick (CH341 D0/D2/D4/D6), as in MeshCoreRPI.
 
@@ -348,7 +348,7 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
 |---|---|---|
 | USB MeshStick (CH341A `1a86:5512` + SX1262), por exemplo o Elecrow MeshStick | USB OTG | ✅ suportado |
 | Kit Seeed **XIAO nRF52840 + Wio-SX1262** com o firmware [xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) | USB OTG | ✅ suportado |
-| **Pendrive LoRa** (CH341F + Core1262-HF, sem MCU), em [`hardware/`](hardware/) | USB OTG | 🧪 projeto v0.1, ainda não fabricado |
+| **Pendrive LoRa** (CH341F + Wio-SX1262, sem MCU), em [`hardware/`](hardware/) | USB OTG | 🧪 projeto v0.2, ainda não fabricado |
 
 Pinos, TCXO (DIO3) e chave de RF (DIO2) já vêm configurados para o MeshStick (CH341 D0/D2/D4/D6), como no
 MeshCoreRPI.

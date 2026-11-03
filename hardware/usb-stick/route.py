@@ -17,7 +17,6 @@ from scipy.ndimage import distance_transform_edt
 HERE = os.path.dirname(os.path.abspath(__file__))
 PCB = os.path.join(HERE, "usb-stick.kicad_pcb")
 OX, OY = 100.0, 100.0
-W, H = 29.0, 22.0
 G = 0.05                     # grid step, mm
 TRACK = 0.2                  # track width
 VIA_D, VIA_DRILL = 0.6, 0.3     # JLCPCB standard (no extra cost)
@@ -26,10 +25,12 @@ EDGE = 0.3                   # copper to board edge
 SLACK = 0.03                 # raster error margin
 VIA_COST, BOTTOM_COST = 15.0, 1.25
 
-NX, NY = int(round(W / G)) + 1, int(round(H / G)) + 1
 F, B = 0, 1
 
 board = pcbnew.LoadBoard(PCB)
+_bb = board.GetBoardEdgesBoundingBox()
+W, H = round(ToMM(_bb.GetWidth()), 2), round(ToMM(_bb.GetHeight()), 2)
+NX, NY = int(round(W / G)) + 1, int(round(H / G)) + 1
 netcodes = {n.GetNetname(): n.GetNetCode() for n in board.GetNetInfo().NetsByName().values() if n.GetNetname()}
 
 copper = [np.zeros((NX, NY), dtype=np.int32) for _ in range(2)]

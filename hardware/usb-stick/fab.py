@@ -5,7 +5,7 @@
   usb-stick-bom.csv       BOM for SMT assembly (Comment, Designator, Footprint, LCSC Part #)
   usb-stick-cpl.csv       pick-and-place (Designator, Mid X, Mid Y, Layer, Rotation)
 
-The Core1262-HF module (M1) and the 0R option R4 are left out of the assembly: solder M1 by hand.
+The Wio-SX1262 module (M1) is left out of the assembly: solder it by hand.
 """
 import csv
 import os
@@ -35,7 +35,9 @@ with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         z.write(os.path.join(TMP, f), f)
 
 board = pcbnew.LoadBoard(PCB)
-origin_x, origin_y = 100.0, 122.0   # bottom-left corner of the board, as JLCPCB expects (y up)
+bb = board.GetBoardEdgesBoundingBox()
+origin_x = pcbnew.ToMM(bb.GetX())                      # bottom-left corner of the board,
+origin_y = pcbnew.ToMM(bb.GetY()) + pcbnew.ToMM(bb.GetHeight())   # as JLCPCB expects (y up)
 groups = {}
 cpl = []
 for fp in sorted(board.GetFootprints(), key=lambda f: f.GetReference()):
