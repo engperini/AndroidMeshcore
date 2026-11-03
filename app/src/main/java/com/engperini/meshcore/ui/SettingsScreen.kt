@@ -425,6 +425,6 @@ private fun ServiceCard(running: Boolean) {
                 context.startService(Intent(context, MeshService::class.java).setAction(MeshService.ACTION_STOP))
             }
         }
-        Muted("MeshCore USB ${BuildConfig.VERSION_NAME}${device?.let { " • firmware ${it.version}" } ?: ""} • github.com/engperini/AndroidMeshcore", size = 11)
+        Muted("MeshCommunity ${BuildConfig.VERSION_NAME}${device?.let { " • firmware ${it.version}" } ?: ""} • github.com/engperini/AndroidMeshcore", size = 11)
     }
 }

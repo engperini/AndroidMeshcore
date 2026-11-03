@@ -1,4 +1,4 @@
-# MeshCore USB (AndroidMeshcore)
+# MeshCommunity (AndroidMeshcore)
 
 **English** · [Português](#português)
 
@@ -7,8 +7,11 @@ Run a **full [MeshCore](https://github.com/meshcore-dev/MeshCore) node inside yo
 messages, contacts, rooms, repeater admin, map and radio settings, all in one app. No firmware flashing, no
 Bluetooth, no second app.
 
+**One radio, several protocols, no flashing:** the protocol runs on the phone, so the same USB radio switches
+between modes in Settings: **MeshCore**, **generic LoRa**, and **Meshtastic** (in progress).
+
 <p align="center">
-  <img src="docs/hardware.jpg" alt="Android phone with the USB MeshStick on an OTG cable, MeshCore USB showing the radio diagnostics" width="360"><br>
+  <img src="docs/hardware.jpg" alt="Android phone with the USB MeshStick on an OTG cable, MeshCommunity showing the radio diagnostics" width="360"><br>
   <sub>The real thing: an Android phone + a USB MeshStick (CH341 + SX1262) on an OTG adapter, receiving the MeshCore Brasil mesh.</sub>
 </p>
 
@@ -106,7 +109,7 @@ The app is in **English and Portuguese**: it follows the phone's language and ca
 
 ## Compared with the official MeshCore app and MeshCoreRPI
 
-| Feature | Official MeshCore app | MeshCoreRPI (Pi) | MeshCore USB (this app) |
+| Feature | Official MeshCore app | MeshCoreRPI (Pi) | MeshCommunity (this app) |
 |---|---|---|---|
 | How it reaches the radio | BLE/USB to a node running firmware | SPI/USB on the Pi; clients over TCP | **USB OTG straight to the MeshStick, the node runs on the phone** |
 | Public, #hashtag and private channels | ✅ | via a client | ✅ |
@@ -153,7 +156,7 @@ You need:
 
 1. Download `MeshCoreUSB.apk` from **Releases** or from the latest run in **Actions**.
 2. Install it. Android will ask you to allow installs from unknown sources.
-3. Attach the antenna, plug the MeshStick into the phone with OTG, and allow **MeshCore USB to open** and to
+3. Attach the antenna, plug the MeshStick into the phone with OTG, and allow **MeshCommunity to open** and to
    **access the USB device**. Tick "always" so it doesn't ask again.
 4. In **Settings** → **LoRa radio**, pick your **region** (default: Brazil 923.125 MHz, 62.5 kHz, SF8, CR8), the
    **path bytes** (Brazil: 2) and tap **Apply**. Under **Identity**, give your node a name.
@@ -164,7 +167,7 @@ the same signature. Before changing phones or reinstalling, use **Settings → I
 
 > [!TIP]
 > Some phones switch OTG off after a while or save battery aggressively. If the radio stops with the screen off,
-> turn off battery optimisation for MeshCore USB.
+> turn off battery optimisation for MeshCommunity.
 
 ## Build
 
@@ -230,12 +233,15 @@ MIT license, see [LICENSE](LICENSE).
 
 # Português
 
-[English](#meshcore-usb-androidmeshcore) · **Português**
+[English](#meshcommunity-androidmeshcore) · **Português**
 
 Rode um nó **[MeshCore](https://github.com/meshcore-dev/MeshCore) completo dentro do celular Android**.
 Você pluga um **USB MeshStick** (CH341 + SX1262) no celular com um cabo **OTG** e já sai usando:
 canais em grupo, mensagens diretas, contatos, salas, administração de repetidores, mapa e configurações de rádio,
 tudo no mesmo app. Não precisa gravar firmware, nem de Bluetooth, nem de um segundo app.
+
+**Um rádio, vários protocolos, sem gravar firmware:** o protocolo roda no celular, então o mesmo rádio USB troca de
+modo nas Configurações: **MeshCore**, **LoRa genérico** e **Meshtastic** (em andamento).
 
 <p align="center">
   <img src="docs/hardware.jpg" alt="Celular Android com o USB MeshStick conectado por cabo OTG" width="300"><br>
@@ -338,7 +344,7 @@ O app está em **português e inglês**: segue o idioma do celular e pode ser tr
 
 ## Comparação com o app oficial do MeshCore e com o MeshCoreRPI
 
-| Funcionalidade | App oficial MeshCore | MeshCoreRPI (Pi) | MeshCore USB (este app) |
+| Funcionalidade | App oficial MeshCore | MeshCoreRPI (Pi) | MeshCommunity (este app) |
 |---|---|---|---|
 | Como conecta ao rádio | BLE/USB com um nó que roda firmware | SPI/USB no Pi; clientes por TCP | **USB OTG direto no MeshStick, nó roda no celular** |
 | Canais Public, #hashtag e privados | ✅ | via cliente | ✅ |
@@ -387,7 +393,7 @@ Você precisa de:
 
 1. Baixe o `MeshCoreUSB.apk`, pela aba **Releases** ou pelo artefato da última execução em **Actions**.
 2. Instale o APK. O Android vai pedir para permitir instalação de fontes desconhecidas.
-3. Coloque a antena, conecte o MeshStick ao celular pelo OTG e aceite **abrir o MeshCore USB** e
+3. Coloque a antena, conecte o MeshStick ao celular pelo OTG e aceite **abrir o MeshCommunity** e
    **permitir o acesso ao dispositivo USB**. Marque "usar sempre" para não perguntar de novo.
 4. Na aba **Config** → **Rádio LoRa**, escolha a **região** (padrão: Brasil 923.125 MHz, 62.5 kHz, SF8, CR8), os
    **bytes do caminho** (Brasil: 2) e toque em **Aplicar**. Em **Identidade**, dê um nome ao seu nó.
@@ -399,7 +405,7 @@ identidade → Exportar**.
 
 > [!TIP]
 > Alguns celulares desligam o OTG depois de um tempo sem uso, ou economizam bateria de forma agressiva. Se o
-> rádio parar com a tela apagada, desative a otimização de bateria para o MeshCore USB.
+> rádio parar com a tela apagada, desative a otimização de bateria para o MeshCommunity.
 
 ## Compilar
 

@@ -173,7 +173,7 @@ fun Header(onConnect: () -> Unit) {
         Logo(46)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("MeshCore USB", color = Mesh.TEXT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("MeshCommunity", color = Mesh.TEXT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             val summary = if (mode == RadioMode.LORA) {
                 tr("Generic LoRa", "LoRa genérico") + " • " + lora.summary
             } else {
@@ -250,9 +250,9 @@ fun ConnectPanel(state: LinkState, message: String, onConnect: () -> Unit) {
             Muted(
                 tr(
                     "1. Attach the antenna to the MeshStick or the XIAO's Wio-SX1262.\n2. Plug it into the phone with a USB OTG cable or adapter.\n" +
-                        "3. Allow MeshCore USB to open and to access the device.",
+                        "3. Allow MeshCommunity to open and to access the device.",
                     "1. Coloque a antena no MeshStick ou no Wio-SX1262 do XIAO.\n2. Conecte-o ao celular com um cabo ou adaptador USB OTG.\n" +
-                        "3. Aceite abrir o MeshCore USB e permitir o acesso ao dispositivo.",
+                        "3. Aceite abrir o MeshCommunity e permitir o acesso ao dispositivo.",
                 ),
             )
             if (state != LinkState.STARTING) Pill(tr("Connect", "Conectar"), Modifier.fillMaxWidth(), PillStyle.PRIMARY, onClick = onConnect)
