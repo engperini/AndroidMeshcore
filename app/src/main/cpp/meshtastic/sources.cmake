@@ -75,7 +75,7 @@ set(MT_INCLUDES
 # Arduino's String.h must not shadow <string.h>: added after the system headers.
 set(MT_IDIRAFTER ${PD}/ArduinoCore-API/api)
 # Compile options every source needs (the firmware's build forces these too).
-set(MT_OPTIONS -w -fexceptions "SHELL:-include sys/time.h" "SHELL:-include ${MT_DIR}/android/userprefs.h"
+set(MT_OPTIONS -w -Wno-c++11-narrowing -fexceptions "SHELL:-include sys/time.h" "SHELL:-include ${MT_DIR}/android/userprefs.h"
   "SHELL:-idirafter ${MT_IDIRAFTER}")
 
 set(MT_DEFINES
