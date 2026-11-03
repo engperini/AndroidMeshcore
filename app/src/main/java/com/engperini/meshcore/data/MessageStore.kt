@@ -5,10 +5,15 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-/** Conversation key: "c:<contact pubkey hex>" for direct chats, "g:<channel secret hex>" for groups. */
+/**
+ * Conversation key: "c:<contact pubkey hex>" for direct chats, "g:<channel secret hex>" for groups (MeshCore);
+ * "mtd:<node number hex>" and "mtc:<psk hex>:<name>" for Meshtastic direct chats and channels.
+ */
 object ConvKey {
     fun contact(pubKeyHex: String) = "c:$pubKeyHex"
     fun channel(secretHex: String) = "g:$secretHex"
+    fun mtDirect(num: Long) = "mtd:%08x".format(num)
+    fun mtChannel(pskHex: String, name: String) = "mtc:$pskHex:$name"
 }
 
 enum class MsgStatus(val code: Int) {
@@ -125,6 +130,15 @@ class MessageStore(context: Context) : SQLiteOpenHelper(context, "messages.db", 
             "ack=? AND outgoing=1 AND status IN (?, ?)",
             arrayOf(ack.toString(), MsgStatus.SENT.code.toString(), MsgStatus.FAILED.code.toString()),
         ) > 0
+
+    /** The outgoing message waiting for this ACK / packet id, if any. */
+    fun idByAck(ack: Long): Long? =
+        readableDatabase.rawQuery("SELECT id FROM messages WHERE ack=? AND outgoing=1 ORDER BY id DESC LIMIT 1", arrayOf(ack.toString()))
+            .use { if (it.moveToFirst()) it.getLong(0) else null }
+
+    fun convOf(id: Long): String? =
+        readableDatabase.rawQuery("SELECT conv FROM messages WHERE id=?", arrayOf(id.toString()))
+            .use { if (it.moveToFirst()) it.getString(0) else null }
 
     fun failIfNotDelivered(id: Long) {
         writableDatabase.update(

@@ -48,13 +48,21 @@ fun ModeCard() {
     MeshCard {
         CardTitle(tr("Mode", "Modo"))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            RadioMode.entries.forEach { m -> MeshChip(m.label, mode == m, Modifier.weight(1f)) { LoraController.setMode(m) } }
+            RadioMode.entries.forEach { m ->
+                MeshChip(if (m == RadioMode.LORA) "LoRa" else m.label, mode == m, Modifier.weight(1f)) { LoraController.setMode(m) }
+            }
         }
         Muted(
             when (mode) {
                 RadioMode.MESHCORE -> tr(
                     "MeshCore node on the phone: chats, contacts, map and admin.",
                     "Nó MeshCore no celular: conversas, contatos, mapa e administração.",
+                )
+                RadioMode.MESHTASTIC -> tr(
+                    "Meshtastic node on the phone (the Meshtastic firmware, built for Android): channels, direct messages, " +
+                        "nodes and traceroute. The MeshCore node pauses and keeps its identity, contacts and messages.",
+                    "Nó Meshtastic no celular (o firmware Meshtastic, compilado para Android): canais, mensagens diretas, " +
+                        "nós e traceroute. O nó MeshCore pausa e mantém identidade, contatos e mensagens.",
                 )
                 RadioMode.LORA -> tr(
                     "Raw LoRa packets with free parameters, e.g. for your own sensors and telemetry. " +

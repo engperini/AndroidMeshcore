@@ -76,14 +76,19 @@ enum class Tab(private val en: String, private val pt: String, val icon: ImageVe
 
     val label: String get() = tr(en, pt)
 
-    /** Tab title in a given mode: in generic LoRa mode the chats tab is the packet terminal. */
-    fun label(mode: RadioMode): String = if (this == CHATS && mode == RadioMode.LORA) "LoRa" else label
+    /** Tab title in a given mode: in generic LoRa mode the chats tab is the packet terminal; Meshtastic has nodes. */
+    fun label(mode: RadioMode): String = when {
+        this == CHATS && mode == RadioMode.LORA -> "LoRa"
+        this == CONTACTS && mode == RadioMode.MESHTASTIC -> tr("Nodes", "Nós")
+        else -> label
+    }
 }
 
 /** Tabs shown in each mode. Contacts and the map belong to the mesh protocols. */
 fun tabsFor(mode: RadioMode): List<Tab> = when (mode) {
     RadioMode.MESHCORE -> Tab.entries
     RadioMode.LORA -> listOf(Tab.CHATS, Tab.SETTINGS)
+    RadioMode.MESHTASTIC -> listOf(Tab.CHATS, Tab.CONTACTS, Tab.SETTINGS)
 }
 
 /** Screens above the tabs. */
@@ -91,6 +96,7 @@ sealed class Route {
     data class Chat(val conv: Conversation) : Route()
     data class ContactDetail(val keyHex: String) : Route()
     data class Admin(val keyHex: String) : Route()
+    data class MtNode(val num: Long) : Route()
 }
 
 class Nav {
@@ -122,7 +128,8 @@ fun App(onConnect: () -> Unit, incomingLink: MeshLink?, onLinkHandled: () -> Uni
         Box(Modifier.fillMaxSize().padding(pad)) {
             when (val top = nav.stack.lastOrNull()) {
                 null -> Home(tab, { tab = it }, nav, onConnect)
-                is Route.Chat -> ChatScreen(top.conv, nav)
+                is Route.Chat -> if (top.conv.key.startsWith("mt")) MtChatScreen(top.conv, nav) else ChatScreen(top.conv, nav)
+                is Route.MtNode -> MtNodeScreen(top.num, nav)
                 is Route.ContactDetail -> ContactScreen(top.keyHex, nav)
                 is Route.Admin -> AdminScreen(top.keyHex, nav)
             }
@@ -147,8 +154,12 @@ internal fun Home(tabSelected: Tab, onTab: (Tab) -> Unit, nav: Nav, onConnect: (
                 ConnectPanel(link.state, link.message, onConnect)
             } else {
                 when (tab) {
-                    Tab.CHATS -> if (mode == RadioMode.LORA) LoraScreen() else ChatsScreen(nav)
-                    Tab.CONTACTS -> ContactsScreen(nav)
+                    Tab.CHATS -> when (mode) {
+                        RadioMode.LORA -> LoraScreen()
+                        RadioMode.MESHTASTIC -> MtChatsScreen(nav)
+                        RadioMode.MESHCORE -> ChatsScreen(nav)
+                    }
+                    Tab.CONTACTS -> if (mode == RadioMode.MESHTASTIC) MtNodesScreen(nav) else ContactsScreen(nav)
                     Tab.MAP -> MapScreen(nav)
                     Tab.NETWORK -> NetworkScreen()
                     Tab.SETTINGS -> SettingsScreen(onConnect)
@@ -167,6 +178,8 @@ fun Header(onConnect: () -> Unit) {
     val device by MeshController.device.collectAsState()
     val mode by LoraController.mode.collectAsState()
     val lora by LoraController.config.collectAsState()
+    val mtNodes by com.engperini.meshcore.core.MeshtasticController.nodes.collectAsState()
+    val mtLora by com.engperini.meshcore.core.MeshtasticController.lora.collectAsState()
     var menu by remember { mutableStateOf(false) }
 
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -176,6 +189,9 @@ fun Header(onConnect: () -> Unit) {
             Text("MeshCommunity", color = Mesh.TEXT, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             val summary = if (mode == RadioMode.LORA) {
                 tr("Generic LoRa", "LoRa genérico") + " • " + lora.summary
+            } else if (mode == RadioMode.MESHTASTIC) {
+                val me = com.engperini.meshcore.core.MeshtasticController.myNum.value?.let { mtNodes[it] }
+                listOfNotNull("Meshtastic", me?.title, mtLora?.let { "${it.regionName.substringBefore(' ')} ${it.presetName}" }).joinToString(" • ")
             } else {
                 self?.let { s ->
                     val bytes = device?.let { " • " + bytesLabel(it.pathHashMode + 1) } ?: ""

@@ -60,5 +60,11 @@
             android:name=".service.MeshService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- The Meshtastic node (firmware) runs in its own process: a node reboot is a fresh process. -->
+        <service
+            android:name=".mt.MtEngineService"
+            android:exported="false"
+            android:process=":meshtastic" />
     </application>
 </manifest>

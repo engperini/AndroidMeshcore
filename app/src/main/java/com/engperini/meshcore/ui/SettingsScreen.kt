@@ -93,7 +93,11 @@ fun SettingsScreen(onConnect: () -> Unit) {
         if (mode == RadioMode.LORA) {
             // Generic LoRa: parameters can be set before the radio is connected.
             item { LoraRadioCard() }
-        } else if (running) {
+        } else if (mode == RadioMode.MESHTASTIC && running) {
+            item { MtOwnerCard() }
+            item { MtRadioCard() }
+            item { MtChannelsCard() }
+        } else if (running && mode == RadioMode.MESHCORE) {
             item { RadioCard() }
             item { IdentityCard() }
             item { AdvertCard() }

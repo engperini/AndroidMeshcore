@@ -10,12 +10,16 @@ import kotlinx.coroutines.flow.update
 /** The protocol the radio runs. One at a time; each keeps its own data. */
 enum class RadioMode(val nativeId: Int) {
     MESHCORE(NativeMesh.MODE_MESHCORE),
-    LORA(NativeMesh.MODE_LORA);
+    LORA(NativeMesh.MODE_LORA),
+
+    /** The Meshtastic firmware, in its own process (MtEngineService) instead of libmeshcore. */
+    MESHTASTIC(-1);
 
     val label: String
         get() = when (this) {
             MESHCORE -> "MeshCore"
             LORA -> tr("Generic LoRa", "LoRa genérico")
+            MESHTASTIC -> "Meshtastic"
         }
 }
 
@@ -111,14 +115,15 @@ object LoraController {
     fun pushToNative() {
         val c = _config.value
         NativeMesh.nativeSetLoraConfig(c.freqKhz * 1000, c.bwHz, c.sf, c.cr, c.syncRegister, c.txDbm, c.preamble)
-        NativeMesh.nativeSetMode(_mode.value.nativeId)
+        // Meshtastic does not run in libmeshcore; the service switches engines for it.
+        if (_mode.value != RadioMode.MESHTASTIC) NativeMesh.nativeSetMode(_mode.value.nativeId)
     }
 
     fun setMode(mode: RadioMode) {
         if (mode == _mode.value) return
         _mode.value = mode
         if (::prefs.isInitialized) prefs.edit().putString("radio_mode", mode.name).apply()
-        pushToNative()   // a running radio switches at once; MeshCore keeps its state
+        pushToNative()   // a running radio switches at once; each protocol keeps its state
     }
 
     fun setConfig(c: LoraConfig) {

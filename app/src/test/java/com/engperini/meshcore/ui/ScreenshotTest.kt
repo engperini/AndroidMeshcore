@@ -148,6 +148,47 @@ open class ScreenshotTest {
     @Test fun loraTerminal() = shot("10-lora") { loraPreview(); Home(Tab.CHATS, {}, Nav(), {}) }
     @Test fun loraSettings() = shot("11-lora-config") { loraPreview(); Home(Tab.SETTINGS, {}, Nav(), {}) }
 
+    private fun mtPreview() {
+        val now = System.currentTimeMillis() / 1000
+        com.engperini.meshcore.core.LoraController.preview(
+            com.engperini.meshcore.core.RadioMode.MESHTASTIC, com.engperini.meshcore.core.LoraConfig(), emptyList(),
+        )
+        val me = 0x7a1c33f0L
+        fun node(num: Long, long: String, short: String, hops: Int?, agoSec: Long, batt: Int? = null, role: Int = 0) =
+            com.engperini.meshcore.core.MtNode(
+                num, "!%08x".format(num), long, short, role = role, snr = if (hops == 0) 6.5f else 0f, lastHeard = now - agoSec,
+                hops = hops, battery = batt, hasKey = true,
+            )
+        com.engperini.meshcore.core.MeshtasticController.preview(
+            me,
+            listOf(
+                node(me, "Arthur Phone", "ARTH", 0, 0, 100),
+                node(0x433ad1e2, "Base Campinas", "BCAM", 0, 60, 101, role = 2),
+                node(0x9b02c7aa, "Mobile Rafa", "RAFA", 1, 900, 76),
+                node(0x15e0f9c4, "Solar Hill", "SOL", 2, 5400, 93, role = 2),
+            ),
+            listOf(
+                com.engperini.meshcore.core.MtChannel(0, 1, "", "01"),
+                com.engperini.meshcore.core.MtChannel(1, 2, "Familia", "a1b2c3d4e5f60718293a4b5c6d7e8f90"),
+            ),
+            com.engperini.meshcore.core.MtLora(6, true, 0, 3, true, 0, 919.875),
+        )
+        val store = MeshController.messages
+        val lf = ConvKey.mtChannel("01", "")
+        store.clear(lf)
+        store.insert(lf, false, "Mobile Rafa", "Alguém na escuta em Campinas?", now - 700, MsgStatus.RECEIVED, 4.5f, 1)
+        val mine = store.insert(lf, true, "Arthur Phone", "Na escuta! Meshtastic rodando no celular via USB", now - 600, MsgStatus.SENT)
+        store.addRepeat(mine, "Base Campinas")
+        val dm = ConvKey.mtDirect(0x9b02c7aaL)
+        store.clear(dm)
+        store.insert(dm, false, "Mobile Rafa", "Te ouvi direto, 1 salto", now - 300, MsgStatus.RECEIVED, 3.0f, 1, unread = true)
+    }
+
+    @Test fun meshtasticChats() = shot("12-meshtastic") { mtPreview(); Home(Tab.CHATS, {}, Nav(), {}) }
+    @Test fun meshtasticNodes() = shot("13-meshtastic-nos") { mtPreview(); Home(Tab.CONTACTS, {}, Nav(), {}) }
+    @Test fun meshtasticSettings() = shot("14-meshtastic-config") { mtPreview(); Home(Tab.SETTINGS, {}, Nav(), {}) }
+    @Test fun meshtasticNode() = shot("15-meshtastic-no") { mtPreview(); MtNodeScreen(0x9b02c7aaL, Nav()) }
+
     @Test fun admin() = shot("9-admin-repetidor") {
         val p = repeater.pubKey.copyOf(6).joinToString("") { "%02x".format(it) }
         MeshController.previewAdmin(

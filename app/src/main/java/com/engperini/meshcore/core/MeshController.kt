@@ -242,6 +242,14 @@ object MeshController {
         }
     }
 
+    /** Link state for a protocol that does not run in libmeshcore (Meshtastic). */
+    fun setLink(state: LinkState, message: String) {
+        _link.value = LinkStatus(state, message)
+    }
+
+    /** Message history changed outside this controller (Meshtastic). */
+    fun messagesChanged() = bump()
+
     fun setNoDevice(message: String) {
         _link.value = LinkStatus(LinkState.NO_DEVICE, message)
     }

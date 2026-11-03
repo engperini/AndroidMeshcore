@@ -23,7 +23,6 @@
 #include <functional>
 #include <memory>
 #include <mutex>
-#include <random>
 #include <string>
 #include <thread>
 #include <vector>
@@ -44,8 +43,6 @@ std::mutex g_mutex;
 std::deque<std::function<void()>> g_queue;
 std::atomic<bool> g_started{false};
 std::unique_ptr<RadioUsbBus> g_bus;
-std::mt19937 g_rng{std::random_device{}()};
-std::mutex g_rng_mutex;
 
 void emit(const std::string& json)
 {
@@ -188,14 +185,6 @@ JNIEXPORT void JNICALL Java_com_engperini_meshcore_mt_MtNative_start(JNIEnv* env
         g_bus = std::make_unique<Ch341Bridge>();
     }
     std::thread(run, str(env, data_dir), xiao).detach();
-}
-
-JNIEXPORT jint JNICALL Java_com_engperini_meshcore_mt_MtNative_newPacketId(JNIEnv*, jclass)
-{
-    std::lock_guard<std::mutex> lock(g_rng_mutex);
-    uint32_t id = 0;
-    while (id == 0) id = g_rng();
-    return static_cast<jint>(id);
 }
 
 JNIEXPORT void JNICALL Java_com_engperini_meshcore_mt_MtNative_requestConfig(JNIEnv*, jclass, jint nonce)

@@ -26,11 +26,15 @@ import com.engperini.meshcore.R
 import com.engperini.meshcore.core.LinkState
 import com.engperini.meshcore.core.LoraController
 import com.engperini.meshcore.core.MeshController
+import com.engperini.meshcore.core.MeshtasticController
 import com.engperini.meshcore.core.NativeMesh
+import com.engperini.meshcore.core.RadioMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -42,6 +46,8 @@ class MeshService : Service() {
     private var connection: UsbDeviceConnection? = null
     private var device: UsbDevice? = null
     private var xiaoLink: XiaoLink? = null
+    /** The radio runs the Meshtastic engine (its own process) rather than libmeshcore. */
+    private var runningMeshtastic = false
     private var wakeLock: PowerManager.WakeLock? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var messageNotifId = 100
@@ -75,6 +81,20 @@ class MeshService : Service() {
         )
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         MeshController.onIncoming = { n -> notifyMessage(n.title, n.text) }
+        // MeshCore and generic LoRa switch inside libmeshcore; Meshtastic is another engine: restart the radio.
+        scope.launch {
+            LoraController.mode.drop(1).collect { mode ->
+                val usb = getSystemService(USB_SERVICE) as UsbManager
+                val d = device ?: return@collect
+                if ((mode == RadioMode.MESHTASTIC) != runningMeshtastic) {
+                    val leavingMeshtastic = runningMeshtastic
+                    closeDevice()
+                    // Let the Meshtastic process release the radio before libmeshcore takes it again.
+                    delay(if (leavingMeshtastic) 1500 else 300)
+                    if (device == null && usb.hasPermission(d)) openDevice(usb, d)
+                }
+            }
+        }
         scope.launch {
             MeshController.link.collect {
                 updateForeground(it.message, it.state)
@@ -132,6 +152,14 @@ class MeshService : Service() {
         xiaoLink = link
         acquireWakeLock()
         val dataDir = File(filesDir, "meshcore").apply { mkdirs() }
+        if (LoraController.mode.value == RadioMode.MESHTASTIC) {
+            runningMeshtastic = true
+            MeshtasticController.start(
+                this, conn.fileDescriptor, kind.nativeId, link?.epIn ?: -1, link?.epOut ?: -1, link?.dataInterface ?: -1,
+            )
+            return
+        }
+        runningMeshtastic = false
         LoraController.pushToNative()   // protocol (MeshCore or generic LoRa) and its parameters
         NativeMesh.nativeStart(
             dataDir.absolutePath, conn.fileDescriptor, kind.nativeId,
@@ -141,7 +169,8 @@ class MeshService : Service() {
 
     private fun closeDevice() {
         val conn = connection ?: return
-        NativeMesh.nativeStop()
+        if (runningMeshtastic) MeshtasticController.stop() else NativeMesh.nativeStop()
+        runningMeshtastic = false
         xiaoLink?.let { UsbHelper.closeXiao(conn, it) }
         conn.close()
         connection = null
@@ -209,7 +238,8 @@ class MeshService : Service() {
 
     private fun updateForeground(text: String, state: LinkState) {
         val label = when (state) {
-            LinkState.RUNNING -> tr("Radio on — ", "Rádio ativo — ") + (MeshController.self.value?.name ?: "")
+            LinkState.RUNNING -> tr("Radio on — ", "Rádio ativo — ") +
+                (if (runningMeshtastic) "Meshtastic " + (MeshtasticController.self?.title ?: "") else MeshController.self.value?.name ?: "")
             else -> text
         }
         getSystemService(NotificationManager::class.java).notify(NOTIF_SERVICE, buildServiceNotification(label))
