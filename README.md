@@ -8,7 +8,8 @@ messages, contacts, rooms, repeater admin, map and radio settings, all in one ap
 Bluetooth, no second app.
 
 **One radio, several protocols, no flashing:** the protocol runs on the phone, so the same USB radio switches
-between modes in Settings: **MeshCore**, **generic LoRa**, and **Meshtastic** (in progress).
+between modes in Settings: **MeshCore**, **generic LoRa** and **Meshtastic** (the Meshtastic firmware itself, built for
+Android). One protocol runs at a time; each keeps its own identity, nodes and messages.
 
 <p align="center">
   <img src="docs/hardware.jpg" alt="Android phone with the USB MeshStick on an OTG cable, MeshCommunity showing the radio diagnostics" width="360"><br>
@@ -61,6 +62,22 @@ cards and cyan accents. The screens above are rendered by the tests (`Screenshot
 
 The app is in **English and Portuguese**: it follows the phone's language and can be switched in
 **Settings → Language**.
+
+### Meshtastic mode
+
+**Settings → Mode → Meshtastic** runs the [Meshtastic firmware](https://github.com/meshtastic/firmware) (2.8, its
+portduino/WASM build) on the phone, with the same USB radio (MeshStick, USB LoRa stick or XIAO bridge). The node talks
+to other Meshtastic devices on the air like any Meshtastic radio.
+
+- 💬 **Chats**: the node's channels (the primary channel shows its preset name, e.g. *LongFast*) and direct messages.
+  Your messages show when a node was heard passing them on (implicit ACK), and direct messages turn *delivered ✓✓*
+  with the destination's ACK.
+- 📡 **Nodes**: every node heard, with hops, SNR, battery and last heard; **Traceroute** shows the path out and back
+  with the SNR of each hop.
+- ⚙️ **Settings**: long and short name, **region** (Meshtastic does not transmit until it is set; in Brazil most
+  communities use **ANZ**), modem preset, hop limit, power, and channels (name and key, add/delete).
+- The node runs in its own Android process; a node restart (after some settings) takes a few seconds. Its data stays
+  in the app's storage and is kept apart from MeshCore's.
 
 - 💬 **Chats**: group channels and direct messages in one list, with unread counts and the last message.
   - **Channels**: *Public* comes preconfigured. Create a **#hashtag** channel (everyone using the same `#name` joins
@@ -215,7 +232,10 @@ attaches the APK to the release.
 | `app/src/main/java/.../core/` | `Protocol.kt` (companion frames), `MeshController.kt` (state, command queue, messages), `NativeMesh.kt` (JNI), `Lang.kt` (EN/PT) |
 | `app/src/main/java/.../service/` | Foreground service + USB (permission, fd, wake lock, notifications) |
 | `app/src/main/java/.../ui/` | Compose screens |
+| `app/src/main/cpp/meshtastic/` | Meshtastic engine: the firmware and its libraries in `vendor/` (fetched by `tools/meshtastic/vendor.sh` at fixed revisions, GPL-3.0), the Android glue in `android/` (radio over the same USB buses, events/requests API, JNI) |
+| `app/src/main/java/.../mt/`, `core/MeshtasticController.kt` | Meshtastic engine process (`MtEngineService`) and the app's side of it |
 | `tools/hosttest/` | PC test node (same firmware, UDP radio) |
+| `tools/meshtastic/hosttest/` | PC test of the Meshtastic engine (same sources and glue, simulated radio) |
 
 Compile-time limits (as in MeshCoreRPI): `MAX_CONTACTS=500`, `MAX_GROUP_CHANNELS=20`, in
 `app/src/main/cpp/CMakeLists.txt`.
@@ -226,8 +246,14 @@ Compile-time limits (as in MeshCoreRPI): `MAX_CONTACTS=500`, `MAX_GROUP_CHANNELS
 - [MeshCoreRPI](https://github.com/engperini/MeshCoreRPI): native Linux port, SX1262 and CH341 driver.
 - [Arduino Crypto](https://github.com/rweather/arduinolibs) by Rhys Weatherley: MIT.
 - ed25519 by Orson Peters: zlib.
+- [Meshtastic firmware](https://github.com/meshtastic/firmware) by the Meshtastic developers: **GPL-3.0**, with
+  [RadioLib](https://github.com/jgromes/RadioLib) (MIT), [portduino](https://github.com/meshtastic/framework-portduino)
+  (GPL-3.0), [nanopb](https://github.com/nanopb/nanopb) (zlib) and the other libraries in
+  `app/src/main/cpp/meshtastic/vendor/`, each with its license file.
 
-MIT license, see [LICENSE](LICENSE).
+This repository's own code is under the MIT license, see [LICENSE](LICENSE). The Meshtastic engine in
+`app/src/main/cpp/meshtastic/` is GPL-3.0, and so the **APK, which includes it, is distributed under GPL-3.0**; its
+complete source is this repository.
 
 ---
 
@@ -241,7 +267,8 @@ canais em grupo, mensagens diretas, contatos, salas, administração de repetido
 tudo no mesmo app. Não precisa gravar firmware, nem de Bluetooth, nem de um segundo app.
 
 **Um rádio, vários protocolos, sem gravar firmware:** o protocolo roda no celular, então o mesmo rádio USB troca de
-modo nas Configurações: **MeshCore**, **LoRa genérico** e **Meshtastic** (em andamento).
+modo nas Configurações: **MeshCore**, **LoRa genérico** e **Meshtastic** (o próprio firmware Meshtastic, compilado para
+Android). Um protocolo roda por vez; cada um mantém sua identidade, nós e mensagens.
 
 <p align="center">
   <img src="docs/hardware.jpg" alt="Celular Android com o USB MeshStick conectado por cabo OTG" width="300"><br>
@@ -293,6 +320,22 @@ translúcidos e destaques em ciano. As telas acima são renderizadas pelos teste
 ## Funcionalidades
 
 O app está em **português e inglês**: segue o idioma do celular e pode ser trocado em **Config → Idioma**.
+
+### Modo Meshtastic
+
+**Config → Modo → Meshtastic** roda o [firmware Meshtastic](https://github.com/meshtastic/firmware) (2.8, a versão
+portduino/WASM) no celular, com o mesmo rádio USB (MeshStick, pendrive LoRa USB ou ponte XIAO). O nó conversa no ar com
+outros aparelhos Meshtastic como qualquer rádio Meshtastic.
+
+- 💬 **Conversas**: os canais do nó (o primário mostra o nome do preset, ex.: *LongFast*) e mensagens diretas. Suas
+  mensagens mostram quando um nó foi ouvido repassando (ACK implícito), e as diretas ficam *entregue ✓✓* com o ACK do
+  destino.
+- 📡 **Nós**: todos os nós ouvidos, com saltos, SNR, bateria e quando foi ouvido; o **Traceroute** mostra o caminho de
+  ida e volta com o SNR de cada salto.
+- ⚙️ **Config**: nome longo e curto, **região** (o Meshtastic não transmite até ela ser definida; no Brasil a maioria
+  das comunidades usa **ANZ**), preset do modem, limite de saltos, potência e canais (nome e chave, adicionar/excluir).
+- O nó roda num processo Android próprio; um reinício do nó (depois de algumas configurações) leva alguns segundos. Os
+  dados ficam no armazenamento do app, separados dos do MeshCore.
 
 
 - 💬 **Conversas**: canais em grupo e mensagens diretas numa lista só, com não lidas e a última mensagem.
@@ -453,7 +496,10 @@ APK à release.
 | `app/src/main/java/.../core/` | `Protocol.kt` (frames companion), `MeshController.kt` (estado, fila de comandos, mensagens), `NativeMesh.kt` (JNI) |
 | `app/src/main/java/.../service/` | Serviço em primeiro plano + USB (permissão, fd, wake lock, notificações) |
 | `app/src/main/java/.../ui/` | Telas Compose |
+| `app/src/main/cpp/meshtastic/` | Motor Meshtastic: o firmware e suas bibliotecas em `vendor/` (baixados por `tools/meshtastic/vendor.sh` em revisões fixas, GPL-3.0), a cola Android em `android/` (rádio pelos mesmos barramentos USB, API de eventos/pedidos, JNI) |
+| `app/src/main/java/.../mt/`, `core/MeshtasticController.kt` | Processo do motor Meshtastic (`MtEngineService`) e o lado do app |
 | `tools/hosttest/` | Nó de teste para PC (mesmo firmware, rádio UDP) |
+| `tools/meshtastic/hosttest/` | Teste do motor Meshtastic no PC (mesmas fontes e cola, rádio simulado) |
 
 Limites de compilação (como no MeshCoreRPI): `MAX_CONTACTS=500`, `MAX_GROUP_CHANNELS=20`. Ficam em
 `app/src/main/cpp/CMakeLists.txt`.
@@ -464,5 +510,11 @@ Limites de compilação (como no MeshCoreRPI): `MAX_CONTACTS=500`, `MAX_GROUP_CH
 - [MeshCoreRPI](https://github.com/engperini/MeshCoreRPI): port nativo para Linux, driver SX1262 e CH341.
 - [Arduino Crypto](https://github.com/rweather/arduinolibs), de Rhys Weatherley: MIT.
 - ed25519, de Orson Peters: zlib.
+- [Firmware Meshtastic](https://github.com/meshtastic/firmware), dos desenvolvedores do Meshtastic: **GPL-3.0**, com
+  [RadioLib](https://github.com/jgromes/RadioLib) (MIT), [portduino](https://github.com/meshtastic/framework-portduino)
+  (GPL-3.0), [nanopb](https://github.com/nanopb/nanopb) (zlib) e as outras bibliotecas em
+  `app/src/main/cpp/meshtastic/vendor/`, cada uma com seu arquivo de licença.
 
-Licença MIT, veja [LICENSE](LICENSE).
+O código próprio deste repositório está sob a licença MIT, veja [LICENSE](LICENSE). O motor Meshtastic em
+`app/src/main/cpp/meshtastic/` é GPL-3.0, por isso o **APK, que o inclui, é distribuído sob a GPL-3.0**; o código-fonte
+completo é este repositório.
