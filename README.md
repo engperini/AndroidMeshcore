@@ -172,7 +172,7 @@ You need:
 
 ## Install
 
-1. Download `MeshCoreUSB.apk` from **Releases** or from the latest run in **Actions**.
+1. Download `MeshCommunity.apk` from **Releases** or from the latest run in **Actions**.
 2. Install it. Android will ask you to allow installs from unknown sources.
 3. Attach the antenna, plug the MeshStick into the phone with OTG, and allow **MeshCommunity to open** and to
    **access the USB device**. Tick "always" so it doesn't ask again.
@@ -436,7 +436,7 @@ Você precisa de:
 
 ## Instalação
 
-1. Baixe o `MeshCoreUSB.apk`, pela aba **Releases** ou pelo artefato da última execução em **Actions**.
+1. Baixe o `MeshCommunity.apk`, pela aba **Releases** ou pelo artefato da última execução em **Actions**.
 2. Instale o APK. O Android vai pedir para permitir instalação de fontes desconhecidas.
 3. Coloque a antena, conecte o MeshStick ao celular pelo OTG e aceite **abrir o MeshCommunity** e
    **permitir o acesso ao dispositivo USB**. Marque "usar sempre" para não perguntar de novo.

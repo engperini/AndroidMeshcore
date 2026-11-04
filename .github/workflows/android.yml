@@ -76,7 +76,7 @@ jobs:
           apk=app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt2" dump badging "$apk" | head -1
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$apk" | grep -E 'SHA-256|DN'
-          cp "$apk" MeshCoreUSB.apk
+          cp "$apk" MeshCommunity.apk
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -89,8 +89,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MeshCoreUSB-apk
-          path: MeshCoreUSB.apk
+          name: MeshCommunity-apk
+          path: MeshCommunity.apk
 
       # Creates the tag on this commit when the run was started by hand with a release tag.
       - name: Publish release
@@ -101,4 +101,4 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: MeshCommunity ${{ env.RELEASE_TAG }}
           generate_release_notes: true
-          files: MeshCoreUSB.apk
+          files: MeshCommunity.apk
