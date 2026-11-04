@@ -80,7 +80,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
     }
     LaunchedEffect(version) {
         MeshController.markRead(conv.key)
-        if (messages.isNotEmpty()) listState.animateScrollToItem(0)   // newest, at the bottom
+        if (messages.isNotEmpty()) listState.scrollToItem(0)   // newest, at the bottom
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {

@@ -58,7 +58,7 @@ fun LoraScreen() {
     val rx = packets.filter { !it.outgoing }
 
     LaunchedEffect(packets.size) {
-        if (packets.isNotEmpty()) listState.animateScrollToItem(0)   // newest, at the bottom
+        if (packets.isNotEmpty()) listState.scrollToItem(0)   // newest, at the bottom
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {

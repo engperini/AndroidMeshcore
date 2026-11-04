@@ -74,6 +74,9 @@ android {
             it.systemProperty("hostNode", rootProject.file("tools/hosttest/build/host_node").absolutePath)
             // Optional Maven mirror for Robolectric's Android jars (screenshot tests).
             System.getenv("ROBOLECTRIC_REPO_URL")?.let { url -> it.systemProperty("robolectric.dependency.repo.url", url) }
+            // A hung test fails the build instead of stalling CI, and the log names every test.
+            it.timeout.set(java.time.Duration.ofMinutes(15))
+            it.testLogging { events("passed", "skipped", "failed") }
         }
     }
 }
