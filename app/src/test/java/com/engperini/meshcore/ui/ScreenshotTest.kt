@@ -172,6 +172,12 @@ open class ScreenshotTest {
                 com.engperini.meshcore.core.MtChannel(1, 2, "Familia", "a1b2c3d4e5f60718293a4b5c6d7e8f90"),
             ),
             com.engperini.meshcore.core.MtLora(6, true, 0, 3, true, 0, 919.875),
+            listOf(
+                com.engperini.meshcore.core.MtTrace(
+                    0x9b02c7aaL, listOf(0x433ad1e2L), listOf(9.25f, 4.5f), listOf(0x433ad1e2L), listOf(5.0f, 8.75f), 3400,
+                    System.currentTimeMillis(),
+                ),
+            ),
         )
         val store = MeshController.messages
         val lf = ConvKey.mtChannel("01", "")

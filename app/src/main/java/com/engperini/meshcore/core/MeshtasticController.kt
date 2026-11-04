@@ -547,7 +547,8 @@ object MeshtasticController {
 
     /** Screenshot tests. */
     @androidx.annotation.VisibleForTesting
-    fun preview(myNum: Long, nodes: List<MtNode>, channels: List<MtChannel>, lora: MtLora) {
+    fun preview(myNum: Long, nodes: List<MtNode>, channels: List<MtChannel>, lora: MtLora, traces: List<MtTrace> = emptyList()) {
+        _traces.value = traces.associateBy { it.dest }
         _myNum.value = myNum
         _nodes.value = nodes.associateBy { it.num }
         _channels.value = channels
