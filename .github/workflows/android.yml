@@ -99,6 +99,6 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
-          name: MeshCore USB ${{ env.RELEASE_TAG }}
+          name: MeshCommunity ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           files: MeshCoreUSB.apk
