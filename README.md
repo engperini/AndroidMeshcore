@@ -28,6 +28,7 @@ Switch networks with one tap. No firmware flashing, no Bluetooth, no second app.
 - [Quick start](#quick-start)
 - [Screens](#screens)
 - [Features](#features)
+- [Future: the radio without the cable](#future-the-radio-without-the-cable)
 - [How it works inside](#how-it-works-inside)
 - [Build](#build) · [Tests](#tests) · [Layout](#layout) · [Credits and license](#credits-and-license)
 
@@ -218,6 +219,43 @@ own. Presets listen to the MeshCore and Meshtastic channels. Good for your own s
 | Also runs Meshtastic and generic LoRa | — | — | ✅ |
 | Sensor telemetry | ✅ | — | not yet |
 
+## Future: the radio without the cable
+
+Today the radio is plugged into the phone. These are the next ideas, keeping what makes MeshCommunity different:
+**the protocols run in the app, and the radio never needs to be flashed to change networks.**
+
+**1. A LoRa modem over Bluetooth or Wi-Fi.** Over USB the phone drives the radio chip command by command, which
+needs the ~0.3 ms round trips of a cable. Without a cable the radio needs a small microcontroller that speaks in
+whole packets: *"set 919.875 MHz, SF11"*, *"send these 40 bytes"*, *"received 52 bytes, RSSI −97"*. That is one
+message per packet, fine over Bluetooth or Wi-Fi.
+
+A modem is not the same as the official firmware, even on the same board:
+
+| | Official firmware | LoRa modem |
+|---|---|---|
+| Knows | the whole protocol: routing, encryption, channels, nodes | only the radio: bytes in, bytes out |
+| Networks | one, the one flashed | any; it doesn't know which |
+| Change network or update the protocol | flash the board | tap in the app / update the app |
+| Without the phone | keeps relaying and storing messages | does nothing |
+
+So for one network and a wireless radio, the official firmware on a Bluetooth board is the simpler choice; the
+modem is for using several networks, raw LoRa, or new protocols with one radio. The idea is proven: ham radio's KISS
+TNCs (APRSdroid over Bluetooth) and Reticulum's [RNode](https://github.com/markqvist/RNode_Firmware) are LoRa
+modems of this kind. Speaking the RNode protocol, if it fits, would let boards already flashed with RNode work here.
+
+**2. The Raspberry Pi as the home radio.** Many of us already keep a Pi with an SX1262 and the antenna at the window,
+running a MeshCore repeater (e.g. with [MeshCoreRPI](https://github.com/engperini/MeshCoreRPI)). The Pi would run a
+small radio server, and the app would connect to it over the home Wi-Fi: from the sofa, switch the window antenna to
+Meshtastic to see the community chat, use the generic LoRa terminal, or back to MeshCore. When the phone lets go,
+the Pi goes back to being the repeater. (One radio listens on one frequency at a time: while you use Meshtastic,
+the MeshCore repeater pauses.)
+
+**3. MeshCore repeater and companion on the same radio.** The MeshCore companion firmware only lets a companion
+repeat on 433.000, 869.000 and 918.000 MHz, so not on the Brazilian 923.125 MHz. That is a deliberate network rule.
+Instead of bypassing it, the same radio can carry two nodes side by side: a real **repeater**, with its own identity
+and announced as a repeater, and **your companion**. The Pi at the window, or the USB radio on the phone, serves
+both.
+
 ## How it works inside
 
 ```
@@ -327,6 +365,7 @@ Troque de rede com um toque. Sem gravar firmware, sem Bluetooth, sem segundo app
 - [Começo rápido](#começo-rápido)
 - [Telas](#telas)
 - [Funcionalidades](#funcionalidades)
+- [Futuro: o rádio sem o cabo](#futuro-o-rádio-sem-o-cabo)
 - [Como funciona por dentro](#como-funciona-por-dentro)
 - [Compilar](#compilar) · [Testes](#testes) · [Estrutura](#estrutura) · [Créditos e licença](#créditos-e-licença)
 
@@ -524,6 +563,43 @@ experiências.
 | Backup da identidade | ✅ | — | ✅ |
 | Também roda Meshtastic e LoRa genérico | — | — | ✅ |
 | Telemetria de sensores | ✅ | — | ainda não |
+
+## Futuro: o rádio sem o cabo
+
+Hoje o rádio fica plugado no celular. Estas são as próximas ideias, mantendo o que faz o MeshCommunity diferente:
+**os protocolos rodam no app, e o rádio nunca precisa ser regravado para trocar de rede.**
+
+**1. Um modem LoRa por Bluetooth ou Wi-Fi.** Pela USB, o celular controla o chip do rádio comando por comando, o que
+exige as idas e voltas de ~0,3 ms de um cabo. Sem cabo, o rádio precisa de um pequeno microcontrolador que fala em
+pacotes inteiros: *"ajuste 919,875 MHz, SF11"*, *"transmita estes 40 bytes"*, *"recebi 52 bytes, RSSI −97"*. É uma
+mensagem por pacote, o que funciona bem por Bluetooth ou Wi-Fi.
+
+Um modem não é o mesmo que o firmware oficial, mesmo na mesma placa:
+
+| | Firmware oficial | Modem LoRa |
+|---|---|---|
+| Sabe | o protocolo inteiro: roteamento, criptografia, canais, nós | só o rádio: bytes entram, bytes saem |
+| Redes | uma, a que foi gravada | qualquer uma; ele nem sabe qual |
+| Trocar de rede ou atualizar o protocolo | regravar a placa | um toque no app / atualizar o app |
+| Sem o celular | continua repetindo e guardando mensagens | não faz nada |
+
+Por isso, para uma rede só com rádio sem fio, o firmware oficial numa placa com Bluetooth é a escolha mais simples; o
+modem é para usar várias redes, LoRa livre ou protocolos novos com um rádio só. A ideia é comprovada: os TNC KISS do
+radioamador (o APRSdroid usa por Bluetooth) e o [RNode](https://github.com/markqvist/RNode_Firmware) da rede
+Reticulum são modems LoRa desse tipo. Falar o protocolo do RNode, se ele servir, permitiria usar aqui placas que já
+têm o firmware RNode.
+
+**2. O Raspberry Pi como o rádio de casa.** Muita gente já deixa um Pi com SX1262 e a antena na janela, rodando um
+repetidor MeshCore (por exemplo com o [MeshCoreRPI](https://github.com/engperini/MeshCoreRPI)). O Pi rodaria um pequeno
+servidor de rádio, e o app se conectaria a ele pelo Wi-Fi de casa: do sofá, você troca a antena da janela para o
+Meshtastic e vê a conversa da comunidade, usa o terminal LoRa genérico ou volta para o MeshCore. Quando o celular
+solta, o Pi volta a ser o repetidor. (Um rádio escuta uma frequência por vez: enquanto você usa o Meshtastic, o
+repetidor MeshCore pausa.)
+
+**3. Repetidor e companion MeshCore no mesmo rádio.** O firmware companion do MeshCore só deixa um companion repetir
+em 433,000, 869,000 e 918,000 MHz, ou seja, não nos 923,125 MHz do Brasil. É uma regra intencional da rede. Em vez de
+furá-la, o mesmo rádio pode carregar dois nós lado a lado: um **repetidor de verdade**, com identidade própria e
+anunciado como repetidor, e o **seu companion**. O Pi na janela, ou o rádio USB no celular, atende os dois.
 
 ## Como funciona por dentro
 
