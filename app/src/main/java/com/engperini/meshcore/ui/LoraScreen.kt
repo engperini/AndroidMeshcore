@@ -58,14 +58,21 @@ fun LoraScreen() {
     val rx = packets.filter { !it.outgoing }
 
     LaunchedEffect(packets.size) {
-        if (packets.isNotEmpty()) listState.animateScrollToItem(packets.size)
+        if (packets.isNotEmpty()) listState.animateScrollToItem(0)   // newest, at the bottom
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(), state = listState,
+            // Anchored at the bottom: the keyboard pushes the latest packets up instead of covering them. Items are
+            // listed bottom-up, so the newest packet comes first and the header card last (at the top).
+            reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            items(packets.asReversed()) { p -> PacketRow(p, asHex, fmt) }
+            if (packets.isEmpty()) {
+                item { Empty(tr("No packets yet.\nWaiting for LoRa traffic on this channel.", "Nenhum pacote ainda.\nAguardando tráfego LoRa neste canal.")) }
+            }
             item {
                 MeshCard {
                     CardTitle(tr("Generic LoRa", "LoRa genérico")) {
@@ -103,10 +110,6 @@ fun LoraScreen() {
                     }
                 }
             }
-            if (packets.isEmpty()) {
-                item { Empty(tr("No packets yet.\nWaiting for LoRa traffic on this channel.", "Nenhum pacote ainda.\nAguardando tráfego LoRa neste canal.")) }
-            }
-            items(packets) { p -> PacketRow(p, asHex, fmt) }
         }
         // send bar
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {

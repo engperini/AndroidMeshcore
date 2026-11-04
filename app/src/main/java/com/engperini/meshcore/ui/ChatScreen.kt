@@ -80,7 +80,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
     }
     LaunchedEffect(version) {
         MeshController.markRead(conv.key)
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+        if (messages.isNotEmpty()) listState.animateScrollToItem(0)   // newest, at the bottom
     }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
@@ -115,11 +115,13 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth(),
             state = listState,
+            // Anchored at the bottom, as chat apps are: when the keyboard opens the latest messages move up with it.
+            reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (messages.isEmpty()) item { Empty(tr("No messages yet. Say hi! 👋", "Nenhuma mensagem ainda. Diga oi! 👋")) }
-            items(messages, key = { it.id }) { m ->
+            items(messages.asReversed(), key = { it.id }) { m ->
                 Bubble(m, showSender = conv.isChannel || isRoom) {
                     if (!conv.isChannel && m.outgoing && m.status == MsgStatus.FAILED) {
                         MeshController.retryDirect(m.id, conv.prefixHex, m.text, m.timestamp)
