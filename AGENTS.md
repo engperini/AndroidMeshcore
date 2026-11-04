@@ -2,9 +2,14 @@
 
 ## What This Repository Is
 
-Android app that runs a full MeshCore companion node on the phone, with a USB MeshStick
-(CH341A `1a86:5512` + SX1262) or a XIAO nRF52840 + Wio-SX1262 running the
-[xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) firmware as radio over USB OTG. Port of MeshCoreRPI (native Linux MeshCore).
+MeshCommunity: an Android app that runs mesh firmware on the phone, one protocol at a time on the same USB radio
+(USB MeshStick, CH341A `1a86:5512` + SX1262, or a XIAO nRF52840 + Wio-SX1262 running the
+[xiao-sx1262-usb-bridge](https://github.com/engperini/xiao-sx1262-usb-bridge) firmware) over USB OTG:
+
+- **MeshCore**: the companion node, ported from MeshCoreRPI (`libmeshcore.so`);
+- **generic LoRa**: raw packets with free parameters (also in `libmeshcore.so`);
+- **Meshtastic**: the Meshtastic firmware's portduino/WASM build compiled for Android (`libmeshtastic.so`, GPL-3.0),
+  in its own process (`:meshtastic`).
 
 ## Layout
 
@@ -18,6 +23,12 @@ Android app that runs a full MeshCore companion node on the phone, with a USB Me
 - `service/`: foreground service owning the USB connection; `ui/`: Compose screens in the MeshSDR "night sky" style
   (`Theme.kt`, `Components.kt`).
 - `tools/hosttest/`: PC build of the same firmware with a UDP "radio", used by `TwoNodeMeshTest`.
+- `app/src/main/cpp/meshtastic/`: `vendor/` holds the Meshtastic firmware and libraries at the revisions pinned in
+  `tools/meshtastic/vendor.sh` (do not edit them; regenerate with the script); `android/` is the glue (libpinedio
+  over `RadioUsbBus`, data root and clock, `mt_api` JSON events and requests, `mt_jni`). `sources.cmake` is shared by
+  the app and `tools/meshtastic/hosttest`.
+- `mt/MtEngineService.kt` (engine process, Messenger IPC) and `core/MeshtasticController.kt` (app side). Meshtastic
+  messages share `MessageStore` under `mtc:`/`mtd:` conversation keys.
 
 ## Rules
 
@@ -35,5 +46,6 @@ Android app that runs a full MeshCore companion node on the phone, with a USB Me
 
 ```bash
 tools/hosttest/build.sh
+tools/meshtastic/hosttest/build.sh            # Meshtastic engine on the PC (simulated radio)
 ./gradlew testDebugUnitTest assembleRelease   # screenshots in app/build/screenshots (pt-*, en-*)
 ```
