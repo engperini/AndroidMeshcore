@@ -67,7 +67,7 @@ fun LoraScreen() {
             // Anchored at the bottom: the keyboard pushes the latest packets up instead of covering them. Items are
             // listed bottom-up, so the newest packet comes first and the header card last (at the top).
             reverseLayout = true,
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
         ) {
             items(packets.asReversed()) { p -> PacketRow(p, asHex, fmt) }
             if (packets.isEmpty()) {

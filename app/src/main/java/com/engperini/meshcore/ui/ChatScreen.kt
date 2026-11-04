@@ -118,7 +118,7 @@ fun ChatScreen(conv: Conversation, nav: Nav) {
             // Anchored at the bottom, as chat apps are: when the keyboard opens the latest messages move up with it.
             reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom),
         ) {
             if (messages.isEmpty()) item { Empty(tr("No messages yet. Say hi! 👋", "Nenhuma mensagem ainda. Diga oi! 👋")) }
             items(messages.asReversed(), key = { it.id }) { m ->
